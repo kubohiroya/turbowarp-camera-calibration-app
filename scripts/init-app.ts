@@ -2,7 +2,7 @@ import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { readme, type AppConfig } from './readme.ts';
+import { readmeEn, readmeJa, type AppConfig } from './readme.ts';
 
 const [destinationArgument, configArgument] = process.argv.slice(2);
 if (!destinationArgument || !configArgument)
@@ -45,6 +45,27 @@ for (const mode of config.modes) {
 }
 for (const item of [...config.plannedFeatures, ...config.plannedDependencies])
   if (typeof item !== 'string') throw new Error('Invalid plan entry.');
+const translation = config.en;
+if (translation !== undefined) {
+  if (typeof translation !== 'object' || translation === null)
+    throw new Error('Invalid English translation.');
+  for (const item of [
+    translation.summary,
+    ...(translation.plannedFeatures ?? []),
+    ...(translation.plannedDependencies ?? []),
+  ])
+    if (item !== undefined && typeof item !== 'string')
+      throw new Error('Invalid English translation entry.');
+  for (const [id, mode] of Object.entries(translation.modes ?? {})) {
+    if (!modes.has(id))
+      throw new Error(`English translation references unknown mode: ${id}`);
+    if (
+      (mode.label !== undefined && typeof mode.label !== 'string') ||
+      (mode.description !== undefined && typeof mode.description !== 'string')
+    )
+      throw new Error('Invalid English mode translation.');
+  }
+}
 for (const entry of await readdir(template)) {
   if (['.git', 'node_modules', 'dist', 'coverage'].includes(entry)) continue;
   await cp(resolve(template, entry), resolve(destination, entry), {
@@ -70,7 +91,8 @@ await writeFile(
   resolve(destination, 'config/app.json'),
   JSON.stringify(config, null, 2) + '\n',
 );
-await writeFile(resolve(destination, 'README.md'), readme(config));
+await writeFile(resolve(destination, 'README.md'), readmeEn(config));
+await writeFile(resolve(destination, 'README.ja.md'), readmeJa(config));
 execFileSync(process.execPath, ['scripts/generate-source.ts', '--write'], {
   cwd: destination,
   stdio: 'inherit',
