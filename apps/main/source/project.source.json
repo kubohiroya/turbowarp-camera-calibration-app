@@ -1,0 +1,97 @@
+{
+  "targets": [
+    {
+      "isStage": true,
+      "name": "Stage",
+      "variables": {
+        "appStatus": [
+          "app status",
+          "初期雛形"
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "start": {
+          "opcode": "event_whenflagclicked",
+          "next": "ready",
+          "parent": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 48,
+          "y": 48
+        },
+        "ready": {
+          "opcode": "data_setvariableto",
+          "next": null,
+          "parent": "start",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                10,
+                "TurboWarp Camera Calibration App: 初期雛形を起動しました。機能本体は未実装です。"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "app status",
+              "appStatus"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        }
+      },
+      "comments": {},
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "assetId": "0d6089dc091dcac7ab002ab60e2f470a",
+          "name": "background",
+          "bitmapResolution": 1,
+          "md5ext": "0d6089dc091dcac7ab002ab60e2f470a.svg",
+          "dataFormat": "svg",
+          "rotationCenterX": 240,
+          "rotationCenterY": 180
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 0,
+      "tempo": 60,
+      "videoTransparency": 50,
+      "videoState": "off",
+      "textToSpeechLanguage": null
+    }
+  ],
+  "monitors": [
+    {
+      "id": "appStatus",
+      "mode": "default",
+      "opcode": "data_variable",
+      "params": {
+        "VARIABLE": "app status"
+      },
+      "spriteName": null,
+      "value": "初期雛形",
+      "width": 0,
+      "height": 0,
+      "x": 10,
+      "y": 10,
+      "visible": true,
+      "sliderMin": 0,
+      "sliderMax": 100,
+      "isDiscrete": true
+    }
+  ],
+  "extensions": [],
+  "meta": {
+    "semver": "3.0.0",
+    "vm": "11.3.0",
+    "agent": "turbowarp-app-template"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "@kubohiroya/turbowarp-camera-calibration-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "市松模様の表示と撮影を1つのアプリで行い、カメラのレンズ校正プロファイルを作成して書き出すアプリです。",
+  "license": "MPL-2.0",
+  "author": "Hiroya Kubo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kubohiroya/turbowarp-camera-calibration-app.git"
+  },
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "pnpm run build:sb3 && vite build",
+    "build:sb3": "node scripts/build-sb3.ts",
+    "source:update": "node scripts/generate-source.ts --write",
+    "source:check": "node scripts/generate-source.ts",
+    "lint": "eslint src scripts config tests vite.config.ts",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run source:check && pnpm run test && pnpm run build",
+    "template:init": "node scripts/init-app.ts"
+  },
+  "dependencies": {
+    "@kubohiroya/turbowarp-app-shell": "0.2.0"
+  },
+  "devDependencies": {
+    "@kubohiroya/sb3-toolchain": "0.12.0",
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.13.3",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.66.0",
+    "vite": "8.2.2",
+    "vitest": "5.0.0",
+    "prettier": "3.9.6"
+  },
+  "homepage": "https://github.com/kubohiroya/turbowarp-camera-calibration-app#readme",
+  "bugs": {
+    "url": "https://github.com/kubohiroya/turbowarp-camera-calibration-app/issues"
+  }
+}

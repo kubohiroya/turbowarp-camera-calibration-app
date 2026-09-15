@@ -1,0 +1,29 @@
+{
+  "slug": "turbowarp-camera-calibration-app",
+  "title": "TurboWarp Camera Calibration App",
+  "summary": "市松模様の表示と撮影を1つのアプリで行い、カメラのレンズ校正プロファイルを作成して書き出すアプリです。",
+  "modes": [
+    {
+      "id": "display",
+      "label": "模様を表示",
+      "description": "市松模様を全画面表示する。別のPCやカメラから撮影する。"
+    },
+    {
+      "id": "capture",
+      "label": "撮影して校正",
+      "description": "表示画面または印刷した模様をカメラで撮影し、レンズ校正を解く。"
+    }
+  ],
+  "plannedFeatures": [
+    "camera-calibration拡張の校正blockを呼び、開始・サンプル追加・solve・cancel・後始末を案内する。",
+    "異なる角度・距離での撮影を促し、サンプルの姿勢分散と品質を表示する。単一固定視点の連写で完了扱いにしない。",
+    "市松模様を全画面表示し、セル寸法と表示条件を記録する。内部校正に実寸は不要で、実寸は配置校正にのみ効くことを案内する。",
+    "再投影誤差と品質を表示し、校正に使っていない画像で検証する。",
+    "内部校正プロファイルをJSONで書き出し、消費側アプリへファイルで渡す。既存プロファイルの読込みと撮影条件への適合確認も行う。"
+  ],
+  "plannedDependencies": [
+    "camera-source：カメラ取得・lease・撮影条件と、内部校正プロファイルの契約。",
+    "camera-calibration：チェスボード抽出とsolve。OpenCVを含む。",
+    "time-space-sync-app／realtime-motion-capture-app／photogrammetry-app：プロファイルの利用側。ファイルで受け取る。"
+  ]
+}
