@@ -6,7 +6,14 @@
  * Scratch: a page can go full screen, print, save a file, and say how large the
  * squares came out, and a fixed-size Scratch stage can do none of those.
  */
-import { BOARDS, layout, patternSvg, type BoardSpec } from './checkerboard.ts';
+import {
+  BOARDS,
+  PRINT_HEIGHT_MM,
+  PRINT_WIDTH_MM,
+  layout,
+  patternSvg,
+  type BoardSpec,
+} from './checkerboard.ts';
 
 /** CSS defines its pixel as 1/96 inch, which is what this conversion means. */
 const MM_PER_CSS_PIXEL = 25.4 / 96;
@@ -82,7 +89,10 @@ export function showPattern(
 /** A standalone file the operator can print or carry to another machine. */
 export function patternFile(board: BoardSpec): Blob {
   const svg = patternSvg(board)
-    .replace(' width="100%" height="100%"', ' width="297mm" height="210mm"')
+    .replace(
+      ' width="100%" height="100%"',
+      ` width="${PRINT_WIDTH_MM}mm" height="${PRINT_HEIGHT_MM}mm"`,
+    )
     .replace('<svg ', '<svg xmlns:xlink="http://www.w3.org/1999/xlink" ');
   return new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${svg}\n`], {
     type: 'image/svg+xml',

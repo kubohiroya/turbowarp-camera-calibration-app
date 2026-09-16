@@ -3,7 +3,7 @@ import {
   createRuntimeMessageIndicator,
 } from '@kubohiroya/turbowarp-app-shell';
 import config from '../config/app.json';
-import { BOARDS } from './checkerboard.ts';
+import { BOARDS, printedCellMillimetres } from './checkerboard.ts';
 import { boardId, findBoard, patternFile, showPattern } from './pattern.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import './style.css';
@@ -147,9 +147,15 @@ const patterns = element('section', '');
 patterns.append(element('h2', 'ChArUcoボードを表示する'));
 const intro = element(
   'p',
-  '校正する側のカメラに見せるための板です。表示した画面、または印刷した紙のどちらでも構いません。内部校正にマスの実寸は要らないので、正確に測る必要はありません。',
+  '校正する側のカメラに見せるための板です。表示した画面、または印刷した紙のどちらでも構いません。レンズの校正そのものにマスの実寸は要りません。スケールは解に入らないためです。',
 );
 patterns.append(intro);
+patterns.append(
+  element(
+    'p',
+    `実寸が効くのは、校正の副産物として板の姿勢を測るときだけです。そちらは距離がそのまま実寸に比例するので、下に書いた「A4原寸で刷ったときの1マス」がずれていれば、同じ割合で距離がずれます。正確に出したい場合は、刷った紙に定規を当てて測ってください。`,
+  ),
+);
 patterns.append(
   element(
     'p',
@@ -163,7 +169,8 @@ for (const board of BOARDS) {
   const item = document.createElement('li');
   const name = element(
     'span',
-    `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}）`,
+    `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}）` +
+      ` / A4原寸で1マス ${printedCellMillimetres(board).toFixed(1)} mm`,
   );
   const openHere = document.createElement('button');
   openHere.type = 'button';
@@ -201,7 +208,7 @@ const media = element('section', '');
 media.append(element('h3', '見せ方によっては結果が偏ります'));
 const mediaList = document.createElement('ul');
 for (const line of [
-  '印刷板：平らで非光沢のものを。縦横を同じ倍率で印刷してください。「用紙に合わせる」で片方だけ伸びると、マスが長方形になり校正が偏ります。',
+  '印刷板：平らで非光沢のものを。A4横に「実際のサイズ」「100%」で刷ってください。「用紙に合わせる」で縮むと1マスの実寸が上の値からずれ、片方だけ伸びればマスが長方形になって校正そのものが偏ります。',
   '液晶モニタ・テレビ：1:1で表示してください。テレビは既定でオーバースキャンやアスペクト補正を掛けることがあり、これもマスを長方形にします。',
   'タブレット：自動回転・自動輝度・スリープを切ってください。映り込みに注意。',
   'プロジェクタは推奨しません。投影面に正対していない、台形補正が入っている、プロジェクタ自身のレンズ歪みがある、のいずれでも格子が正則でなくなります。厄介なことに、この偏りは再投影誤差には現れません。',
