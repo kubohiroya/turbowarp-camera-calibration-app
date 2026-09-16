@@ -28,7 +28,9 @@ type StageTarget = {
   costumes: Array<{ name: string; assetId: string; md5ext: string }>;
 };
 import {
+  EXTENSION_BUNDLE,
   EXTENSION_PINS,
+  embeddedExtensions,
   integrity,
   resolveExtension,
 } from '../scripts/extensions.ts';
@@ -173,6 +175,32 @@ describe('the project', () => {
   it('is deterministic and leaves the calibration path disabled', () => {
     expect(createProject('Test')).toEqual(createProject('Test'));
     expect(featureFlags.captureAndSolveV1).toBe(false);
+  });
+});
+
+describe('the extension bundle', () => {
+  // TurboWarp asks before running each unsandboxed extension a project
+  // carries. Two prompts invite the operator to allow one and deny the other,
+  // and a denied extension's opcodes are simply absent -- the project loads
+  // and then does nothing, with no error to say why.
+  it('asks for the two extensions as one permission', () => {
+    const manifest = embeddedExtensions(
+      EXTENSION_PINS.map(resolveExtension),
+    ) as {
+      extensionBundles?: Array<{ id: string; members: string[]; name: string }>;
+    };
+    expect(manifest.extensionBundles).toHaveLength(1);
+    expect(manifest.extensionBundles?.[0]?.id).toBe(EXTENSION_BUNDLE.id);
+    expect(manifest.extensionBundles?.[0]?.members).toEqual(
+      EXTENSION_PINS.map((pin) => pin.id),
+    );
+  });
+
+  it('asks for no bundle when there is nothing to bundle', () => {
+    // A bundle takes at least two members, and the pattern-only build embeds
+    // none at all.
+    const manifest = embeddedExtensions([]) as { extensionBundles?: unknown };
+    expect(manifest.extensionBundles).toBeUndefined();
   });
 });
 
@@ -334,6 +362,22 @@ describe('the calibration path', () => {
       );
       expect(Number(written.get('columns'))).toBe(board.columns);
     }
+  });
+
+  it('starts calibrating from the green flag, with nothing to press first', () => {
+    // There is no mode to pick. This project does one thing, the board it
+    // defaults to is the one the page offers first, and the shutter watches by
+    // itself -- so a button between the flag and the camera would only ask the
+    // operator to confirm what pressing the flag already said.
+    const startup = scriptOrder(blocks, 'start');
+    expect(startup[0]?.opcode).toBe('event_whenflagclicked');
+    const last = startup[startup.length - 1];
+    expect(last?.opcode).toBe('event_broadcast');
+    expect(
+      (
+        last?.inputs.BROADCAST_INPUT as [number, [number, string, string]]
+      )[1][2],
+    ).toBe('msg-start');
   });
 
   it('takes the camera and opens a session in one step', () => {
