@@ -53,3 +53,79 @@ button {
   font-size: 16px !important;
   border-radius: 8px;
 }
+
+/* The board, and nothing else.
+
+   Everything else on the page is hidden rather than covered. A control that
+   stayed on screen would be in the camera's view along with the pattern, and
+   the app shell's menu floats above ordinary stacking -- so raising the
+   overlay's z-index is not enough, and was not: the menu sat on the board. */
+body.pattern-open > *:not(.pattern-overlay) {
+  display: none !important;
+}
+
+.pattern-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.pattern-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pattern-stage svg {
+  /* Uniform scaling only. Stretching one axis turns the squares into
+     rectangles, which biases the calibration without raising its error. */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.pattern-readout {
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  color: #39496b;
+  text-align: center;
+  background: #ffffff;
+}
+
+.boards {
+  list-style: none;
+  padding: 0;
+}
+
+.boards li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 0;
+}
+
+.boards li span {
+  flex: 1 1 16rem;
+}
+
+@media print {
+  /* The sheet is the board. Everything else on the page is for the screen. */
+  body > *:not(.pattern-overlay) {
+    display: none !important;
+  }
+
+  .pattern-overlay {
+    position: static;
+  }
+
+  .pattern-readout {
+    display: none;
+  }
+}

@@ -6,31 +6,33 @@ An app that both displays and photographs a checkerboard pattern, producing and 
 
 ## What's included
 
-The pattern display half. Capture, solve, and profile export are not implemented yet.
+Pattern display and capture. Profile export is not implemented yet.
 
-- One SB3 covering both roles, with the role chosen after the project starts.
-- Three chessboards to display -- 9x6, 7x5, and 5x4 inner corners -- each drawn as a backdrop with at least one square of blank margin on every side, so the finder can trace the outer squares against the background.
-- Every variable monitor is hidden before a board reaches the screen. A monitor left showing covers the squares underneath it, and the finder reports the board as missing rather than as partly covered.
-- Mode selection, guidance, and error display built on the shared app-shell.
-- Builds for the SB3 and the distribution page, SHA-256 recording, and CI.
+**The chessboard is drawn by the page, not by the SB3.** It needs no camera, no extension and no Scratch, and a page can do what the plan asks of it: print, save a file, report the rendered square size, and never stretch. A fixed-size Scratch stage can do none of those. It also means the capture project contains no chessboard artwork at all -- nothing it draws can be mistaken for the target.
+
+- **Page**: three boards to display -- 9x6, 7x5 and 5x4 inner corners. Full screen in place, in a second window for a second screen, saved as SVG, or printed. Scaling is uniform and the remainder is letterboxed.
+- **SB3**: the capture side. One camera, one session; the extensions are embedded at exact pinned versions.
+- Builds for the SB3 and the distribution page, SHA-256 and size recording, and CI.
 
 ### Keys in the SB3
 
-| Key             | What it does                                                  |
-| --------------- | ------------------------------------------------------------- |
-| `1` / `2` / `3` | Display a board: 9x6, 7x5, or 5x4 inner corners               |
-| `c`             | Take the capture-and-calibrate role (not implemented yet)     |
-| `space`         | Give up the role: clear the board and bring the monitors back |
+| Key             | What it does                                                     |
+| --------------- | ---------------------------------------------------------------- |
+| `1` / `2` / `3` | Choose the board, before starting                                |
+| `c`             | Start: take the camera, show the preview, open a session         |
+| `s`             | Take one sample. Change angle and distance between them          |
+| `v`             | Solve. Refused below eight samples                               |
+| `p`             | Register with Camera Source, where other extensions will read it |
+| `space`         | Stop: close the session and hand the camera back                 |
 
-Inner corners are what the calibration blocks are given, and they are one fewer in each direction than the squares. A 9x6 board shows 10x7 squares.
+Inner corners are what the calibration block is given, and they are one fewer in each direction than the squares. A 9x6 board shows 10x7 squares.
 
 ### Calibrating with it
 
 - **Intrinsic calibration needs no real-world dimensions.** The physical size of a square affects none of fx, fy, cx, cy, or the distortion coefficients; it scales the extrinsic pose only. Real dimensions start to matter in `turbowarp-time-space-sync`'s placement calibration, not here.
-- A pattern on a screen brings moire, highlight clipping, and very little freedom to tilt. A printed board tilts freely. Which was used is recorded with the result.
-- Angle and distance are hard to vary once a camera is mounted on a fixed rig. Calibrate before mounting, or move the pattern rather than the camera afterwards.
-
-The distribution page does not embed the TurboWarp player; it offers the startup-check SB3 for download. Run `build:sb3` before downloading from the dev server.
+- **Tilt the board.** Fronto-parallel samples alone leave focal length and distance inseparable and the solve degenerate. Sliding the board sideways without tilting it is not enough, and the sample-novelty check does not catch that.
+- **How the pattern is presented decides whether the target is a regular grid at all.** Print at a uniform scale; show it on a display set to 1:1, since televisions apply overscan by default; keep a tablet flat, unrotated and matte. A projector is not recommended: keystone, an off-axis placement, or the projector's own lens distortion all bias the result, and none of them raise the reprojection error.
+- Angle and distance are hard to vary once a camera is mounted on a fixed rig, so calibrate before mounting -- and afterwards only a printed board will do, since a displayed pattern cannot be moved.
 
 ## Planned
 

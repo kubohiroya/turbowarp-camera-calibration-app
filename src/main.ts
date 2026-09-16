@@ -3,11 +3,14 @@ import {
   createRuntimeMessageIndicator,
 } from '@kubohiroya/turbowarp-app-shell';
 import config from '../config/app.json';
+import { BOARDS } from './checkerboard.ts';
+import { boardId, findBoard, patternFile, showPattern } from './pattern.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import './style.css';
 
 const mount = document.querySelector<HTMLElement>('#app');
 if (!mount) throw new Error('Application mount is missing.');
+
 function element(tag: string, text: string) {
   const node = document.createElement(tag);
   node.textContent = text;
@@ -17,7 +20,7 @@ document.title = config.title;
 mount.append(element('h1', config.title), element('p', config.summary));
 const note = element(
   'p',
-  'いまできるのは市松模様の表示までです。撮影・solve・プロファイルの書き出しはまだ動作しません。',
+  '模様の表示はこのページが、撮影と校正はダウンロードしたSB3が行います。プロファイルの書き出しはまだ動作しません。',
 );
 note.className = 'note';
 mount.append(note);
@@ -53,13 +56,15 @@ download.download = `${config.slug}.sb3`;
 download.textContent = '起動確認用SB3をダウンロード';
 mount.append(download);
 const keys = element('section', '');
-keys.append(element('h2', 'SB3の操作'));
+keys.append(element('h2', 'SB3の操作（撮影して校正する側）'));
 const keyList = document.createElement('ul');
 for (const line of [
-  '1 / 2 / 3 … 市松模様を表示する（内側コーナー 9x6 / 7x5 / 5x4）',
-  'c … 撮影を始める（カメラ取得・preview・校正セッション開始までを一度に行う）',
-  's … 1枚撮る   v … solve   p … camera-sourceへ登録   x … やり直す',
-  'space … 役割を選び直す。模様を消してモニタを戻す',
+  '1 / 2 / 3 … 使う板を選ぶ（内側コーナー 9x6 / 7x5 / 5x4）。撮影を始める前に選びます',
+  'c … 撮影を始める。カメラ取得・preview・校正セッション開始を一度に行います',
+  's … 1枚撮る。撮るたびに角度と距離を変えてください',
+  'v … solve。8枚以上ないと拒否されます',
+  'p … camera-source へ登録。以後そのプロジェクトの他の拡張がこの値を使います',
+  'space … やめる。セッションを畳み、カメラを他の利用者へ返します',
 ])
   keyList.append(element('li', line));
 keys.append(keyList);
@@ -70,8 +75,9 @@ notes.append(element('h2', '校正するときの注意'));
 const noteList = document.createElement('ul');
 for (const line of [
   '内部校正に実寸は要りません。マスの実寸は fx・fy・cx・cy と歪み係数のどれにも影響せず、効くのは外部姿勢のスケールだけです。実寸が必要になるのは turbowarp-time-space-sync の配置校正で、ここではありません。',
-  '画面に表示した模様はモアレ、輝度の飽和、そして傾けられる角度の少なさに注意してください。印刷した板は自由に傾けられます。どちらを使ったかは結果に記録します。',
-  '固定rigへ搭載したあとは角度も距離も変えにくくなります。搭載前に校正するか、搭載後はカメラではなく模様のほうを動かしてください。',
+  '板は傾けてください。正対したままのサンプルばかりだと焦点距離と距離が分離できず、解が縮退します。傾けずに横へずらすだけでは足りません。',
+  'カメラと板の、動かしやすいほうを動かします。内蔵カメラなら板を持って動かすのが確実です。画面に表示した模様は傾けられないので、その場合はカメラのほうを動かします。',
+  '固定rigへ搭載したあとは角度も距離も変えにくくなります。搭載前に校正するか、搭載後は板のほうを動かしてください。表示した模様は動かせないので、この場合は印刷板だけが使えます。',
 ])
   noteList.append(element('li', line));
 notes.append(noteList);
@@ -98,3 +104,106 @@ buildList.append(
 buildList.append(element('li', '模様の表示：有効。拡張もカメラも使いません。'));
 build.append(buildList);
 mount.append(build);
+
+/**
+ * The board, over the page rather than instead of it.
+ *
+ * An overlay rather than a navigation, so leaving it costs nothing and the page
+ * underneath keeps its state. `?pattern=9x6` opens it directly, which is what
+ * the second window this page opens is pointed at -- and it means the view can
+ * be bookmarked, dragged to another screen, and reopened after a stray Escape.
+ */
+function openPattern(board: (typeof BOARDS)[number]): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'pattern-overlay';
+  const stage = document.createElement('div');
+  stage.className = 'pattern-stage';
+  const readout = element('p', '');
+  readout.className = 'pattern-readout';
+  overlay.append(stage, readout);
+  document.body.append(overlay);
+
+  const view = showPattern(stage, board, () => {
+    view.close();
+    overlay.remove();
+    if (new URLSearchParams(location.search).has('pattern')) {
+      history.replaceState(null, '', location.pathname);
+    }
+  });
+
+  const update = () => {
+    const size = view.measure();
+    readout.textContent =
+      `内側コーナー ${board.columns}x${board.rows}` +
+      `（マス ${board.columns + 1}x${board.rows + 1}）` +
+      ` 1マス ≈ ${size.cellMillimetres.toFixed(1)} mm（公称値。実寸は定規で測ってください）` +
+      ' — クリックまたは Esc で戻る';
+  };
+  update();
+  window.addEventListener('resize', update);
+}
+
+const patterns = element('section', '');
+patterns.append(element('h2', '市松模様を表示する'));
+const intro = element(
+  'p',
+  '校正する側のカメラに見せるための模様です。表示した画面、または印刷した紙のどちらでも構いません。内部校正にマスの実寸は要らないので、正確に測る必要はありません。',
+);
+patterns.append(intro);
+
+const boardList = document.createElement('ul');
+boardList.className = 'boards';
+for (const board of BOARDS) {
+  const item = document.createElement('li');
+  const name = element(
+    'span',
+    `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}）`,
+  );
+  const openHere = document.createElement('button');
+  openHere.type = 'button';
+  openHere.textContent = '全画面で表示';
+  openHere.addEventListener('click', () => openPattern(board));
+
+  const openThere = document.createElement('button');
+  openThere.type = 'button';
+  openThere.textContent = '別ウィンドウで開く';
+  openThere.addEventListener('click', () => {
+    // For the two-screen arrangement: move this window to the other display
+    // and put it full screen there. The two windows never talk to each other;
+    // calibration needs no data to pass between them.
+    window.open(`${location.pathname}?pattern=${boardId(board)}`, '_blank');
+  });
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.textContent = 'SVGを保存';
+  save.addEventListener('click', () => {
+    const url = URL.createObjectURL(patternFile(board));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `chessboard-${boardId(board)}.svg`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  item.append(name, openHere, openThere, save);
+  boardList.append(item);
+}
+patterns.append(boardList);
+
+const media = element('section', '');
+media.append(element('h3', '見せ方によっては結果が偏ります'));
+const mediaList = document.createElement('ul');
+for (const line of [
+  '印刷板：平らで非光沢のものを。縦横を同じ倍率で印刷してください。「用紙に合わせる」で片方だけ伸びると、マスが長方形になり校正が偏ります。',
+  '液晶モニタ・テレビ：1:1で表示してください。テレビは既定でオーバースキャンやアスペクト補正を掛けることがあり、これもマスを長方形にします。',
+  'タブレット：自動回転・自動輝度・スリープを切ってください。映り込みに注意。',
+  'プロジェクタは推奨しません。投影面に正対していない、台形補正が入っている、プロジェクタ自身のレンズ歪みがある、のいずれでも格子が正則でなくなります。厄介なことに、この偏りは再投影誤差には現れません。',
+])
+  mediaList.append(element('li', line));
+media.append(mediaList);
+patterns.append(media);
+mount.append(patterns);
+
+const deepLink = findBoard(new URLSearchParams(location.search).get('pattern'));
+if (deepLink) openPattern(deepLink);

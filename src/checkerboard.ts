@@ -2,15 +2,14 @@
 /**
  * The chessboard the operator points a camera at.
  *
- * Drawn as stage backdrops rather than with the pen, so the pattern is a fixed
- * image the build produces once and the running project only switches to. A
- * pattern redrawn every frame would tear against the camera's exposure and
- * produce corners that move between the samples meant to be of the same board.
+ * Drawn as SVG in the page rather than inside the SB3. The pattern needs no
+ * camera, no extension and no arithmetic, and the things the plan asks of it --
+ * printing, reporting the rendered cell size, never being stretched -- are all
+ * things a page can do and a fixed-size Scratch stage cannot.
+ *
+ * Geometry lives here rather than in the markup so that the printed sheet, the
+ * full-screen view and the saved file are the same board.
  */
-
-/** The TurboWarp stage, in the units backdrop artwork is authored in. */
-export const STAGE_WIDTH = 480;
-export const STAGE_HEIGHT = 360;
 
 export interface BoardSpec {
   /** Inner corners across, which is one fewer than the squares across. */
@@ -20,7 +19,7 @@ export interface BoardSpec {
 }
 
 export interface BoardLayout extends BoardSpec {
-  /** Side of one square, in stage units. */
+  /** Side of one square, in the units the board is drawn in. */
   readonly cell: number;
   readonly boardWidth: number;
   readonly boardHeight: number;
@@ -43,19 +42,28 @@ export const BOARDS: readonly BoardSpec[] = [
 ];
 
 /**
- * Fits a board onto the stage with a blank margin around it.
+ * Fits a board into a box with a blank margin around it.
  *
  * The margin is at least one square on every side. OpenCV's chessboard finder
  * needs the outer squares to be bounded by background it can trace; a board run
  * to the edge of the frame loses its outermost corners, and the pattern is
  * refused as incomplete rather than found with fewer points.
+ *
+ * The box is the drawing's own coordinate space. Nothing here knows the size of
+ * the screen it will end up on: the board is drawn once and scaled uniformly,
+ * because scaling one axis alone would turn the squares into rectangles and the
+ * calibration would solve for a lens that is not there.
  */
-export function layout(board: BoardSpec): BoardLayout {
+export function layout(
+  board: BoardSpec,
+  width = 1000,
+  height = 750,
+): BoardLayout {
   const squaresX = board.columns + 1;
   const squaresY = board.rows + 1;
   // Two extra squares in each direction: one of margin on each side.
   const cell = Math.floor(
-    Math.min(STAGE_WIDTH / (squaresX + 2), STAGE_HEIGHT / (squaresY + 2)),
+    Math.min(width / (squaresX + 2), height / (squaresY + 2)),
   );
   const boardWidth = cell * squaresX;
   const boardHeight = cell * squaresY;
@@ -64,8 +72,8 @@ export function layout(board: BoardSpec): BoardLayout {
     cell,
     boardWidth,
     boardHeight,
-    quietX: (STAGE_WIDTH - boardWidth) / 2,
-    quietY: (STAGE_HEIGHT - boardHeight) / 2,
+    quietX: (width - boardWidth) / 2,
+    quietY: (height - boardHeight) / 2,
   };
 }
 
@@ -75,15 +83,19 @@ export function boardName(board: BoardSpec): string {
 }
 
 /**
- * Draws the board as an SVG backdrop.
+ * Draws the board as an SVG.
  *
  * Only the dark squares are emitted, over a white ground. Painting both colours
  * would put a seam between every pair of rectangles, and a renderer that leaves
  * a half-unit of background showing along it gives the corner finder a line of
  * light where the board has an edge.
  */
-export function backdrop(board: BoardSpec): string {
-  const { cell, quietX, quietY } = layout(board);
+export function patternSvg(
+  board: BoardSpec,
+  width = 1000,
+  height = 750,
+): string {
+  const { cell, quietX, quietY } = layout(board, width, height);
   const squares: string[] = [];
   for (let row = 0; row <= board.rows; row += 1) {
     for (let column = 0; column <= board.columns; column += 1) {
@@ -95,10 +107,15 @@ export function backdrop(board: BoardSpec): string {
       );
     }
   }
+  // preserveAspectRatio keeps the scaling uniform and letterboxes the rest. A
+  // viewer that stretched one axis would hand the solver a grid whose squares
+  // are not square, and the bias that follows does not show up as reprojection
+  // error -- it is simply a wrong calibration that looks like a good one.
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${STAGE_WIDTH}" height="${STAGE_HEIGHT}">` +
-    `<rect width="${STAGE_WIDTH}" height="${STAGE_HEIGHT}" fill="#ffffff"/>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"` +
+    ` preserveAspectRatio="xMidYMid meet" width="100%" height="100%">` +
+    `<rect width="${width}" height="${height}" fill="#ffffff"/>` +
     `<g fill="#000000">${squares.join('')}</g>` +
-    '</svg>\n'
+    '</svg>'
   );
 }
