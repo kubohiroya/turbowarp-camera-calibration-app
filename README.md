@@ -6,11 +6,29 @@ An app that both displays and photographs a checkerboard pattern, producing and 
 
 ## What's included
 
-This is the initial scaffold generated from turbowarp-app-template. Use-case-specific features are not implemented.
+The pattern display half. Capture, solve, and profile export are not implemented yet.
 
+- One SB3 covering both roles, with the role chosen after the project starts.
+- Three chessboards to display -- 9x6, 7x5, and 5x4 inner corners -- each drawn as a backdrop with at least one square of blank margin on every side, so the finder can trace the outer squares against the background.
+- Every variable monitor is hidden before a board reaches the screen. A monitor left showing covers the squares underneath it, and the finder reports the board as missing rather than as partly covered.
 - Mode selection, guidance, and error display built on the shared app-shell.
-- Unpacked SB3 sources plus a startup-check script that updates a state variable when the green flag is clicked.
 - Builds for the SB3 and the distribution page, SHA-256 recording, and CI.
+
+### Keys in the SB3
+
+| Key             | What it does                                                  |
+| --------------- | ------------------------------------------------------------- |
+| `1` / `2` / `3` | Display a board: 9x6, 7x5, or 5x4 inner corners               |
+| `c`             | Take the capture-and-calibrate role (not implemented yet)     |
+| `space`         | Give up the role: clear the board and bring the monitors back |
+
+Inner corners are what the calibration blocks are given, and they are one fewer in each direction than the squares. A 9x6 board shows 10x7 squares.
+
+### Calibrating with it
+
+- **Intrinsic calibration needs no real-world dimensions.** The physical size of a square affects none of fx, fy, cx, cy, or the distortion coefficients; it scales the extrinsic pose only. Real dimensions start to matter in `turbowarp-time-space-sync`'s placement calibration, not here.
+- A pattern on a screen brings moire, highlight clipping, and very little freedom to tilt. A printed board tilts freely. Which was used is recorded with the result.
+- Angle and distance are hard to vary once a camera is mounted on a fixed rig. Calibrate before mounting, or move the pattern rather than the camera afterwards.
 
 The distribution page does not embed the TurboWarp player; it offers the startup-check SB3 for download. Run `build:sb3` before downloading from the dev server.
 
