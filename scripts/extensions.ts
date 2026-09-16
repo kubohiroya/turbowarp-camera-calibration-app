@@ -144,9 +144,41 @@ export const EMBEDDED_EXTENSION_IDS: readonly string[] = EMBEDS_EXTENSIONS
   : [];
 
 /** `embedded-extensions.json`, in the order the extensions are loaded. */
+/**
+ * The one permission the operator is asked for, instead of one per extension.
+ *
+ * TurboWarp asks before running each unsandboxed extension a project carries,
+ * and the two here arrive together and are useless apart. Two prompts invite
+ * the operator to allow one and deny the other, which produces a project that
+ * loads and then does nothing -- no camera, no blocks, no error either, since
+ * a denied extension's opcodes are simply absent.
+ *
+ * The bundle changes where the loading boundary is, not what is being decided:
+ * the same unsandboxed JavaScript is shown, and allowing it still allows all
+ * of it. The expanded source keeps both extensions separately; only the built
+ * SB3 carries the composite.
+ */
+export const EXTENSION_BUNDLE = {
+  id: 'calibrationbundle',
+  name: 'Camera Calibration Bundle',
+} as const;
+
 export function embeddedExtensions(resolved: readonly ResolvedExtension[]) {
   return {
     formatVersion: 1,
+    // Two members is the minimum a bundle takes, and with the calibration path
+    // off there are none at all.
+    ...(resolved.length > 1
+      ? {
+          extensionBundles: [
+            {
+              id: EXTENSION_BUNDLE.id,
+              members: resolved.map((extension) => extension.id),
+              name: EXTENSION_BUNDLE.name,
+            },
+          ],
+        }
+      : {}),
     extensions: resolved.map((extension) => ({
       id: extension.id,
       path: `extensions/${extension.id}.js`,
