@@ -19,8 +19,8 @@ importers:
         specifier: 0.12.0
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.7.0
+        version: 0.7.0
       '@kubohiroya/turbowarp-camera-source':
         specifier: 0.9.0
         version: 0.9.0
@@ -128,8 +128,8 @@ packages:
     resolution: {integrity: sha512-sYt1KBEEm00biA0kjhO+1OkpSO9qb6UI++bXZvtYDQ+2sLMKM1c7vGFD8cEQsLy51cx0vSM8PUufiqb2dIwnQw==}
     engines: {node: '>=22'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.4.0':
-    resolution: {integrity: sha512-FGFFWCWLrIoFtvisRPZv1KJmSyljARcbDzNv9aXCul20GEVNw0jAUnPTu9JuV598XHlvkZwJyblF2o8HDMnhLA==}
+  '@kubohiroya/turbowarp-camera-calibration@0.7.0':
+    resolution: {integrity: sha512-WaoOvsx5IxWDRb82Krbjb2ZTqv/Or730XtGfq5qIbDNBj2CcKNYuGYNI7uajqb0WEtcH1s/Nkht25QtRfSX4hw==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-camera-source@0.8.0':
@@ -241,9 +241,6 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
-
-  '@techstark/opencv-js@4.12.0-release.1':
-    resolution: {integrity: sha512-LtTaph9v/HqLPXEg3m1xs2h7QJh10pUpuDT0nj8g77lelWnTwwQrehtd+fXElLOdrkqc4Fea6Z/sJBvEJLYPfw==}
 
   '@tokenizer/inflate@0.4.1':
     resolution: {integrity: sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==}
@@ -396,6 +393,9 @@ packages:
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  comlink@4.4.2:
+    resolution: {integrity: sha512-OxGdvBmJuNKSCMO4NTl1L47VRp6xn2wG4F/2hYzB6tiCb709otOxtEYCSvK80PtjODfXXZu8ds+Nw5kVCjqd2g==}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -1044,10 +1044,10 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.2.0': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.4.0':
+  '@kubohiroya/turbowarp-camera-calibration@0.7.0':
     dependencies:
       '@kubohiroya/turbowarp-camera-source': 0.8.0
-      '@techstark/opencv-js': 4.12.0-release.1
+      comlink: 4.4.2
 
   '@kubohiroya/turbowarp-camera-source@0.8.0': {}
 
@@ -1101,8 +1101,6 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
-
-  '@techstark/opencv-js@4.12.0-release.1': {}
 
   '@tokenizer/inflate@0.4.1':
     dependencies:
@@ -1278,6 +1276,8 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  comlink@4.4.2: {}
 
   concat-map@0.0.1: {}
 
