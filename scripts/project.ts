@@ -200,15 +200,16 @@ const VARIABLES = {
 } as const;
 
 const IDLE_STATUS = [
-  'c=撮影を始める',
+  'c=もう一度始める',
   '1/2/3=板を選ぶ',
+  'tab=ボタンを開く',
   '模様はアプリのページで表示・印刷します',
 ].join('   ');
 
 const CAPTURE_STATUS = [
   'ボードを持って、角度と距離を変えながらカメラに見せてください。',
   '撮るのは拡張がやります。指示は下に出ます。',
-  'a=自分で撮る   space=やめる',
+  'tab=ボタンを開く   a=自分で撮る   space=やめる',
 ].join('   /   ');
 
 /** Once the operator has taken the shutter back. */
@@ -345,6 +346,17 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // The one thing the operator reads while their hands are busy.
       ...(embedExtensions ? [showVariable(VARIABLES.advice, 'advice')] : []),
       switchBackdrop(backdropName),
+      // The flag starts the calibration. There is no mode to pick first: this
+      // project does one thing, the board it defaults to is the one the page
+      // offers first, and the shutter watches by itself -- so anything the
+      // operator had to press before the camera came on would be a step that
+      // asks them to confirm what they already said by pressing the flag.
+      //
+      // Only in the build that has a camera path. With it off there is nothing
+      // to start, and a message nobody receives.
+      ...(embedExtensions
+        ? [broadcast(MESSAGES.start.id, MESSAGES.start.name)]
+        : []),
     ]),
   };
 
