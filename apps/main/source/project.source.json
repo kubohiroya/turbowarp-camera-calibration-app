@@ -4,17 +4,21 @@
       "isStage": true,
       "name": "Stage",
       "variables": {
-        "role": [
-          "role",
-          ""
-        ],
         "board": [
           "board",
-          ""
+          "9x6"
+        ],
+        "columns": [
+          "columns",
+          9
+        ],
+        "rows": [
+          "rows",
+          6
         ],
         "status": [
           "status",
-          "1/2/3=模様を表示  c=撮影して校正  space=選び直す"
+          "この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。"
         ]
       },
       "lists": {},
@@ -40,14 +44,14 @@
               1,
               [
                 10,
-                ""
+                "9x6"
               ]
             ]
           },
           "fields": {
             "VARIABLE": [
-              "role",
-              "role"
+              "board",
+              "board"
             ]
           },
           "shadow": false,
@@ -62,14 +66,14 @@
               1,
               [
                 10,
-                ""
+                "9"
               ]
             ]
           },
           "fields": {
             "VARIABLE": [
-              "board",
-              "board"
+              "columns",
+              "columns"
             ]
           },
           "shadow": false,
@@ -84,7 +88,29 @@
               1,
               [
                 10,
-                "TurboWarp Camera Calibration App: 1/2/3=模様を表示  c=撮影して校正  space=選び直す"
+                "6"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "rows",
+              "rows"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "start-4": {
+          "opcode": "data_setvariableto",
+          "next": "start-5",
+          "parent": "start-3",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                10,
+                "TurboWarp Camera Calibration App: この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。"
               ]
             ]
           },
@@ -92,20 +118,6 @@
             "VARIABLE": [
               "status",
               "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "start-4": {
-          "opcode": "data_showvariable",
-          "next": "start-5",
-          "parent": "start-3",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
             ]
           },
           "shadow": false,
@@ -146,7 +158,7 @@
           "inputs": {},
           "fields": {
             "BACKDROP": [
-              "chooser",
+              "stage",
               null
             ]
           },
@@ -166,702 +178,6 @@
           "fields": {},
           "shadow": false,
           "topLevel": false
-        },
-        "choose-0": {
-          "opcode": "event_whenkeypressed",
-          "next": "choose-1",
-          "parent": null,
-          "inputs": {},
-          "fields": {
-            "KEY_OPTION": [
-              "space",
-              null
-            ]
-          },
-          "shadow": false,
-          "topLevel": true,
-          "x": 48,
-          "y": 320
-        },
-        "choose-1": {
-          "opcode": "data_setvariableto",
-          "next": "choose-2",
-          "parent": "choose-0",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                ""
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-2": {
-          "opcode": "data_setvariableto",
-          "next": "choose-3",
-          "parent": "choose-1",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                ""
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-3": {
-          "opcode": "data_setvariableto",
-          "next": "choose-4",
-          "parent": "choose-2",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "1/2/3=模様を表示  c=撮影して校正  space=選び直す"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-4": {
-          "opcode": "data_showvariable",
-          "next": "choose-5",
-          "parent": "choose-3",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-5": {
-          "opcode": "data_showvariable",
-          "next": "choose-6",
-          "parent": "choose-4",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-6": {
-          "opcode": "data_showvariable",
-          "next": "choose-7",
-          "parent": "choose-5",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "choose-7-backdrop": {
-          "opcode": "looks_backdrops",
-          "next": null,
-          "parent": "choose-7",
-          "inputs": {},
-          "fields": {
-            "BACKDROP": [
-              "chooser",
-              null
-            ]
-          },
-          "shadow": true,
-          "topLevel": false
-        },
-        "choose-7": {
-          "opcode": "looks_switchbackdropto",
-          "next": null,
-          "parent": "choose-6",
-          "inputs": {
-            "BACKDROP": [
-              1,
-              "choose-7-backdrop"
-            ]
-          },
-          "fields": {},
-          "shadow": false,
-          "topLevel": false
-        },
-        "capture-0": {
-          "opcode": "event_whenkeypressed",
-          "next": "capture-1",
-          "parent": null,
-          "inputs": {},
-          "fields": {
-            "KEY_OPTION": [
-              "c",
-              null
-            ]
-          },
-          "shadow": false,
-          "topLevel": true,
-          "x": 48,
-          "y": 560
-        },
-        "capture-1": {
-          "opcode": "data_setvariableto",
-          "next": "capture-2",
-          "parent": "capture-0",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "capture"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "capture-2": {
-          "opcode": "data_setvariableto",
-          "next": "capture-3",
-          "parent": "capture-1",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "撮影と校正はまだ実装していません。いまは模様の表示だけです。"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "capture-3-backdrop": {
-          "opcode": "looks_backdrops",
-          "next": null,
-          "parent": "capture-3",
-          "inputs": {},
-          "fields": {
-            "BACKDROP": [
-              "chooser",
-              null
-            ]
-          },
-          "shadow": true,
-          "topLevel": false
-        },
-        "capture-3": {
-          "opcode": "looks_switchbackdropto",
-          "next": null,
-          "parent": "capture-2",
-          "inputs": {
-            "BACKDROP": [
-              1,
-              "capture-3-backdrop"
-            ]
-          },
-          "fields": {},
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-0": {
-          "opcode": "event_whenkeypressed",
-          "next": "display-0-1",
-          "parent": null,
-          "inputs": {},
-          "fields": {
-            "KEY_OPTION": [
-              "1",
-              null
-            ]
-          },
-          "shadow": false,
-          "topLevel": true,
-          "x": 360,
-          "y": 48
-        },
-        "display-0-1": {
-          "opcode": "data_setvariableto",
-          "next": "display-0-2",
-          "parent": "display-0-0",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "display"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-2": {
-          "opcode": "data_setvariableto",
-          "next": "display-0-3",
-          "parent": "display-0-1",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "9x6"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-3": {
-          "opcode": "data_setvariableto",
-          "next": "display-0-4",
-          "parent": "display-0-2",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "内側コーナー 9x6（マス 10x7、1マス=ステージ40単位）"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-4": {
-          "opcode": "data_hidevariable",
-          "next": "display-0-5",
-          "parent": "display-0-3",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-5": {
-          "opcode": "data_hidevariable",
-          "next": "display-0-6",
-          "parent": "display-0-4",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-6": {
-          "opcode": "data_hidevariable",
-          "next": "display-0-7",
-          "parent": "display-0-5",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-0-7-backdrop": {
-          "opcode": "looks_backdrops",
-          "next": null,
-          "parent": "display-0-7",
-          "inputs": {},
-          "fields": {
-            "BACKDROP": [
-              "board-9x6",
-              null
-            ]
-          },
-          "shadow": true,
-          "topLevel": false
-        },
-        "display-0-7": {
-          "opcode": "looks_switchbackdropto",
-          "next": null,
-          "parent": "display-0-6",
-          "inputs": {
-            "BACKDROP": [
-              1,
-              "display-0-7-backdrop"
-            ]
-          },
-          "fields": {},
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-0": {
-          "opcode": "event_whenkeypressed",
-          "next": "display-1-1",
-          "parent": null,
-          "inputs": {},
-          "fields": {
-            "KEY_OPTION": [
-              "2",
-              null
-            ]
-          },
-          "shadow": false,
-          "topLevel": true,
-          "x": 680,
-          "y": 48
-        },
-        "display-1-1": {
-          "opcode": "data_setvariableto",
-          "next": "display-1-2",
-          "parent": "display-1-0",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "display"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-2": {
-          "opcode": "data_setvariableto",
-          "next": "display-1-3",
-          "parent": "display-1-1",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "7x5"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-3": {
-          "opcode": "data_setvariableto",
-          "next": "display-1-4",
-          "parent": "display-1-2",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "内側コーナー 7x5（マス 8x6、1マス=ステージ45単位）"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-4": {
-          "opcode": "data_hidevariable",
-          "next": "display-1-5",
-          "parent": "display-1-3",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-5": {
-          "opcode": "data_hidevariable",
-          "next": "display-1-6",
-          "parent": "display-1-4",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-6": {
-          "opcode": "data_hidevariable",
-          "next": "display-1-7",
-          "parent": "display-1-5",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-1-7-backdrop": {
-          "opcode": "looks_backdrops",
-          "next": null,
-          "parent": "display-1-7",
-          "inputs": {},
-          "fields": {
-            "BACKDROP": [
-              "board-7x5",
-              null
-            ]
-          },
-          "shadow": true,
-          "topLevel": false
-        },
-        "display-1-7": {
-          "opcode": "looks_switchbackdropto",
-          "next": null,
-          "parent": "display-1-6",
-          "inputs": {
-            "BACKDROP": [
-              1,
-              "display-1-7-backdrop"
-            ]
-          },
-          "fields": {},
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-0": {
-          "opcode": "event_whenkeypressed",
-          "next": "display-2-1",
-          "parent": null,
-          "inputs": {},
-          "fields": {
-            "KEY_OPTION": [
-              "3",
-              null
-            ]
-          },
-          "shadow": false,
-          "topLevel": true,
-          "x": 1000,
-          "y": 48
-        },
-        "display-2-1": {
-          "opcode": "data_setvariableto",
-          "next": "display-2-2",
-          "parent": "display-2-0",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "display"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-2": {
-          "opcode": "data_setvariableto",
-          "next": "display-2-3",
-          "parent": "display-2-1",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "5x4"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-3": {
-          "opcode": "data_setvariableto",
-          "next": "display-2-4",
-          "parent": "display-2-2",
-          "inputs": {
-            "VALUE": [
-              1,
-              [
-                10,
-                "内側コーナー 5x4（マス 6x5、1マス=ステージ51単位）"
-              ]
-            ]
-          },
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-4": {
-          "opcode": "data_hidevariable",
-          "next": "display-2-5",
-          "parent": "display-2-3",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "role",
-              "role"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-5": {
-          "opcode": "data_hidevariable",
-          "next": "display-2-6",
-          "parent": "display-2-4",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "board",
-              "board"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-6": {
-          "opcode": "data_hidevariable",
-          "next": "display-2-7",
-          "parent": "display-2-5",
-          "inputs": {},
-          "fields": {
-            "VARIABLE": [
-              "status",
-              "status"
-            ]
-          },
-          "shadow": false,
-          "topLevel": false
-        },
-        "display-2-7-backdrop": {
-          "opcode": "looks_backdrops",
-          "next": null,
-          "parent": "display-2-7",
-          "inputs": {},
-          "fields": {
-            "BACKDROP": [
-              "board-5x4",
-              null
-            ]
-          },
-          "shadow": true,
-          "topLevel": false
-        },
-        "display-2-7": {
-          "opcode": "looks_switchbackdropto",
-          "next": null,
-          "parent": "display-2-6",
-          "inputs": {
-            "BACKDROP": [
-              1,
-              "display-2-7-backdrop"
-            ]
-          },
-          "fields": {},
-          "shadow": false,
-          "topLevel": false
         }
       },
       "comments": {},
@@ -869,36 +185,9 @@
       "costumes": [
         {
           "assetId": "0d6089dc091dcac7ab002ab60e2f470a",
-          "name": "chooser",
+          "name": "stage",
           "bitmapResolution": 1,
           "md5ext": "0d6089dc091dcac7ab002ab60e2f470a.svg",
-          "dataFormat": "svg",
-          "rotationCenterX": 240,
-          "rotationCenterY": 180
-        },
-        {
-          "assetId": "4b55481a8781f53c8d11da154cad778f",
-          "name": "board-9x6",
-          "bitmapResolution": 1,
-          "md5ext": "4b55481a8781f53c8d11da154cad778f.svg",
-          "dataFormat": "svg",
-          "rotationCenterX": 240,
-          "rotationCenterY": 180
-        },
-        {
-          "assetId": "5dba25e27cb23fd8abd1260d0fed6a29",
-          "name": "board-7x5",
-          "bitmapResolution": 1,
-          "md5ext": "5dba25e27cb23fd8abd1260d0fed6a29.svg",
-          "dataFormat": "svg",
-          "rotationCenterX": 240,
-          "rotationCenterY": 180
-        },
-        {
-          "assetId": "241fa9448f0d9e9993099aec41a5dd19",
-          "name": "board-5x4",
-          "bitmapResolution": 1,
-          "md5ext": "241fa9448f0d9e9993099aec41a5dd19.svg",
           "dataFormat": "svg",
           "rotationCenterX": 240,
           "rotationCenterY": 180
@@ -915,24 +204,6 @@
   ],
   "monitors": [
     {
-      "id": "role",
-      "mode": "default",
-      "opcode": "data_variable",
-      "params": {
-        "VARIABLE": "role"
-      },
-      "spriteName": null,
-      "value": "",
-      "width": 0,
-      "height": 0,
-      "x": 10,
-      "y": 10,
-      "visible": true,
-      "sliderMin": 0,
-      "sliderMax": 100,
-      "isDiscrete": true
-    },
-    {
       "id": "board",
       "mode": "default",
       "opcode": "data_variable",
@@ -940,11 +211,11 @@
         "VARIABLE": "board"
       },
       "spriteName": null,
-      "value": "",
+      "value": "9x6",
       "width": 0,
       "height": 0,
       "x": 10,
-      "y": 34,
+      "y": 10,
       "visible": true,
       "sliderMin": 0,
       "sliderMax": 100,
@@ -958,11 +229,11 @@
         "VARIABLE": "status"
       },
       "spriteName": null,
-      "value": "1/2/3=模様を表示  c=撮影して校正  space=選び直す",
+      "value": "この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。",
       "width": 0,
       "height": 0,
       "x": 10,
-      "y": 58,
+      "y": 34,
       "visible": true,
       "sliderMin": 0,
       "sliderMax": 100,
@@ -970,6 +241,7 @@
     }
   ],
   "extensions": [],
+  "extensionURLs": {},
   "meta": {
     "semver": "3.0.0",
     "vm": "11.3.0",

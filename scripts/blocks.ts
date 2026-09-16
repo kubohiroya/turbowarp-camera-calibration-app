@@ -2,11 +2,11 @@
 /**
  * A small writer for the block graph an SB3 stores.
  *
- * The format is a flat map keyed by block ID, where order is carried by `next`
- * and `parent` pointers that have to agree in both directions. Written by hand
- * that is a list of opportunities to link a script to itself, and the damage
- * does not show up until TurboWarp loads the project. These helpers build the
- * links from the order the blocks are written in.
+ * The format is a flat map keyed by block ID, where order and nesting are
+ * carried by `next`, `parent` and input pointers that all have to agree with
+ * each other. Written by hand that is a list of opportunities to link a script
+ * to itself, and the damage does not show up until TurboWarp loads the project.
+ * These helpers build the links from the shape the blocks are written in.
  */
 
 export interface ScratchBlock {
@@ -23,12 +23,31 @@ export interface ScratchBlock {
 
 export type BlockMap = Record<string, ScratchBlock>;
 
+/** A block that reports a value or a truth, dropped into another block's input. */
+export interface Reporter {
+  opcode: string;
+  inputs?: Record<string, unknown>;
+  fields?: Record<string, unknown>;
+  /** Reporters nested in this one's inputs, such as the operands of a comparison. */
+  reporters?: Record<string, Reporter>;
+  /** Boolean-shaped reporters nested in this one's inputs. */
+  booleans?: Record<string, Reporter>;
+}
+
 export interface Step {
   opcode: string;
   inputs?: Record<string, unknown>;
   fields?: Record<string, unknown>;
   /** Shadow blocks this step's inputs point at, keyed by input name. */
   menus?: Record<string, { opcode: string; fields: Record<string, unknown> }>;
+  /** Reporter blocks dropped into this step's inputs, keyed by input name. */
+  reporters?: Record<string, Reporter>;
+  /** Boolean reporters dropped into this step's inputs, such as a condition. */
+  booleans?: Record<string, Reporter>;
+  /** Blocks nested inside this one, for a C-shaped block such as forever. */
+  substack?: readonly Step[];
+  /** The second mouth of an if/else. */
+  substack2?: readonly Step[];
 }
 
 /** A literal string, as a block input takes one. */
@@ -41,11 +60,28 @@ export function variable(id: string, name: string): unknown {
   return [name, id];
 }
 
+export function readVariable(id: string, name: string): Reporter {
+  return { opcode: 'data_variable', fields: { VARIABLE: variable(id, name) } };
+}
+
 export function setVariable(id: string, name: string, value: string): Step {
   return {
     opcode: 'data_setvariableto',
     inputs: { VALUE: text(value) },
     fields: { VARIABLE: variable(id, name) },
+  };
+}
+
+/** Copies a reporter's current value into a variable, so a monitor can show it. */
+export function setVariableFrom(
+  id: string,
+  name: string,
+  reporter: Reporter,
+): Step {
+  return {
+    opcode: 'data_setvariableto',
+    fields: { VARIABLE: variable(id, name) },
+    reporters: { VALUE: reporter },
   };
 }
 
@@ -76,6 +112,106 @@ export function switchBackdrop(name: string): Step {
   };
 }
 
+export const show: Step = { opcode: 'looks_show' };
+export const hide: Step = { opcode: 'looks_hide' };
+
+export function forever(body: readonly Step[]): Step {
+  return { opcode: 'control_forever', substack: body };
+}
+
+export function ifElse(
+  condition: Reporter,
+  then: readonly Step[],
+  otherwise: readonly Step[],
+): Step {
+  return {
+    opcode: 'control_if_else',
+    booleans: { CONDITION: condition },
+    substack: then,
+    substack2: otherwise,
+  };
+}
+
+export function equals(
+  left: Reporter | string,
+  right: Reporter | string,
+): Reporter {
+  return operator('operator_equals', 'OPERAND1', 'OPERAND2', left, right);
+}
+
+export function greaterThan(
+  left: Reporter | string,
+  right: Reporter | string,
+): Reporter {
+  return operator('operator_gt', 'OPERAND1', 'OPERAND2', left, right);
+}
+
+export function either(left: Reporter, right: Reporter): Reporter {
+  return {
+    opcode: 'operator_or',
+    booleans: { OPERAND1: left, OPERAND2: right },
+  };
+}
+
+export function not(value: Reporter): Reporter {
+  return { opcode: 'operator_not', booleans: { OPERAND: value } };
+}
+
+export function join(
+  left: Reporter | string,
+  right: Reporter | string,
+): Reporter {
+  return operator('operator_join', 'STRING1', 'STRING2', left, right);
+}
+
+export function subtract(
+  left: Reporter | string,
+  right: Reporter | string,
+): Reporter {
+  return operator('operator_subtract', 'NUM1', 'NUM2', left, right);
+}
+
+function operator(
+  opcode: string,
+  leftName: string,
+  rightName: string,
+  left: Reporter | string,
+  right: Reporter | string,
+): Reporter {
+  const inputs: Record<string, unknown> = {};
+  const reporters: Record<string, Reporter> = {};
+  if (typeof left === 'string') inputs[leftName] = text(left);
+  else reporters[leftName] = left;
+  if (typeof right === 'string') inputs[rightName] = text(right);
+  else reporters[rightName] = right;
+  return { opcode, inputs, reporters };
+}
+
+/** An extension's block, which the SB3 names by extension ID and opcode. */
+export function extensionStep(
+  extensionId: string,
+  opcode: string,
+  args: Record<string, string> = {},
+): Step {
+  return { opcode: `${extensionId}_${opcode}`, inputs: literalArguments(args) };
+}
+
+export function extensionReporter(
+  extensionId: string,
+  opcode: string,
+  args: Record<string, string> = {},
+): Reporter {
+  return { opcode: `${extensionId}_${opcode}`, inputs: literalArguments(args) };
+}
+
+function literalArguments(
+  args: Record<string, string>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(args).map(([name, value]) => [name, text(value)]),
+  );
+}
+
 export function whenFlagClicked(): Step {
   return { opcode: 'event_whenflagclicked' };
 }
@@ -84,6 +220,24 @@ export function whenKeyPressed(key: string): Step {
   return {
     opcode: 'event_whenkeypressed',
     fields: { KEY_OPTION: [key, null] },
+  };
+}
+
+export function whenSpriteClicked(): Step {
+  return { opcode: 'event_whenthisspriteclicked' };
+}
+
+export function whenBroadcastReceived(id: string, name: string): Step {
+  return {
+    opcode: 'event_whenbroadcastreceived',
+    fields: { BROADCAST_OPTION: [name, id] },
+  };
+}
+
+export function broadcast(id: string, name: string): Step {
+  return {
+    opcode: 'event_broadcast',
+    inputs: { BROADCAST_INPUT: [1, [11, name, id]] },
   };
 }
 
@@ -101,35 +255,106 @@ export function script(
   hat: Step,
   body: readonly Step[],
 ): BlockMap {
-  const steps = [hat, ...body];
   const blocks: BlockMap = {};
+  writeStack(blocks, prefix, [hat, ...body], null, { x, y });
+  return blocks;
+}
+
+/**
+ * Writes one run of blocks, linking each to the next and to its parent.
+ *
+ * `parent` is the block this run hangs off: null for a script at the top
+ * level, or the C-shaped block whose mouth it sits in. A nested run is not a
+ * child of the block before it, so the two cases cannot share one rule.
+ */
+function writeStack(
+  blocks: BlockMap,
+  prefix: string,
+  steps: readonly Step[],
+  parent: string | null,
+  position?: { x: number; y: number },
+): string | undefined {
   const idOf = (index: number) => `${prefix}-${index}`;
   steps.forEach((step, index) => {
     const id = idOf(index);
-    const inputs: Record<string, unknown> = { ...step.inputs };
-    for (const [name, menu] of Object.entries(step.menus ?? {})) {
-      const menuId = `${id}-${name.toLowerCase()}`;
-      inputs[name] = [1, menuId];
-      blocks[menuId] = {
-        opcode: menu.opcode,
-        next: null,
-        parent: id,
-        inputs: {},
-        fields: menu.fields,
-        shadow: true,
-        topLevel: false,
-      };
+    const inputs = writeInputs(blocks, id, step);
+
+    if (step.substack !== undefined) {
+      const first = writeStack(blocks, `${id}-do`, step.substack, id);
+      if (first !== undefined) inputs.SUBSTACK = [2, first];
     }
+    if (step.substack2 !== undefined) {
+      const first = writeStack(blocks, `${id}-else`, step.substack2, id);
+      if (first !== undefined) inputs.SUBSTACK2 = [2, first];
+    }
+
     blocks[id] = {
       opcode: step.opcode,
       next: index + 1 < steps.length ? idOf(index + 1) : null,
-      parent: index === 0 ? null : idOf(index - 1),
+      parent: index === 0 ? parent : idOf(index - 1),
       inputs,
       fields: { ...step.fields },
       shadow: false,
-      topLevel: index === 0,
-      ...(index === 0 ? { x, y } : {}),
+      topLevel: parent === null && index === 0,
+      ...(index === 0 && position !== undefined ? position : {}),
     };
   });
-  return blocks;
+  return steps.length > 0 ? idOf(0) : undefined;
+}
+
+/** Writes the blocks a step or reporter carries in its inputs, and links them. */
+function writeInputs(
+  blocks: BlockMap,
+  owner: string,
+  node: Step | Reporter,
+): Record<string, unknown> {
+  const inputs: Record<string, unknown> = { ...node.inputs };
+
+  for (const [name, menu] of Object.entries((node as Step).menus ?? {})) {
+    const menuId = `${owner}-${name.toLowerCase()}`;
+    inputs[name] = [1, menuId];
+    blocks[menuId] = {
+      opcode: menu.opcode,
+      next: null,
+      parent: owner,
+      inputs: {},
+      fields: menu.fields,
+      shadow: true,
+      topLevel: false,
+    };
+  }
+
+  for (const [name, reporter] of Object.entries(node.reporters ?? {})) {
+    // The trailing literal is the shadow a reporter covers: it is what the
+    // input falls back to if the reporter is ever pulled out, and leaving it
+    // off makes the input unreadable to the editor.
+    inputs[name] = [3, writeReporter(blocks, owner, name, reporter), [10, '']];
+  }
+
+  for (const [name, condition] of Object.entries(node.booleans ?? {})) {
+    // A boolean input has no shadow: an empty one is a hole, not a default.
+    inputs[name] = [2, writeReporter(blocks, owner, name, condition)];
+  }
+
+  return inputs;
+}
+
+function writeReporter(
+  blocks: BlockMap,
+  owner: string,
+  name: string,
+  reporter: Reporter,
+): string {
+  const id = `${owner}-${name.toLowerCase()}`;
+  const inputs = writeInputs(blocks, id, reporter);
+  blocks[id] = {
+    opcode: reporter.opcode,
+    next: null,
+    parent: owner,
+    inputs,
+    fields: { ...reporter.fields },
+    shadow: false,
+    topLevel: false,
+  };
+  return id;
 }

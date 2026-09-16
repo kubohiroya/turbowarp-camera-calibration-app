@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 import { createHash } from 'node:crypto';
+import { BOARDS } from '../src/checkerboard.ts';
+import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
-  BOARDS,
-  backdrop as boardBackdrop,
-  boardName,
-  layout,
-  type BoardSpec,
-} from './checkerboard.ts';
-import {
+  extensionReporter,
+  extensionStep,
+  forever,
   hideVariable,
   script,
   setVariable,
+  setVariableFrom,
   showVariable,
   switchBackdrop,
   whenFlagClicked,
@@ -18,126 +17,247 @@ import {
   type BlockMap,
 } from './blocks.ts';
 
-/** The backdrop shown while a role is being chosen. Deliberately featureless. */
-export const chooserBackdrop =
+/**
+ * The stage. Deliberately featureless.
+ *
+ * The chessboard is not here: it is drawn as SVG in the page, where it can be
+ * printed, saved, shown on a tablet, and reported in millimetres -- none of
+ * which a fixed-size Scratch stage can do. Keeping it out also means this
+ * project contains no complete grid anywhere, so nothing it draws can be
+ * mistaken for the target.
+ */
+export const stageBackdrop =
   '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"><rect width="480" height="360" fill="#152033"/></svg>\n';
 
-export const chooserName = 'chooser';
+export const backdropName = 'stage';
 
 export function md5(contents: string): string {
   return createHash('md5').update(contents).digest('hex');
 }
 
-/** Every backdrop this project ships, in costume order. */
 export function backdrops(): ReadonlyArray<{ name: string; contents: string }> {
-  return [
-    { name: chooserName, contents: chooserBackdrop },
-    ...BOARDS.map((board) => ({
-      name: boardName(board),
-      contents: boardBackdrop(board),
-    })),
-  ];
+  return [{ name: backdropName, contents: stageBackdrop }];
 }
 
-/** The key that shows each board, in the order the boards are listed. */
-export function boardKey(index: number): string {
-  return String(index + 1);
-}
+const CAMERA_SOURCE = 'kubohiroyacamerasource';
+const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
+
+/** The camera this project calibrates. Shared with every other consumer. */
+const CAPTURE_CAMERA = 'default';
 
 const VARIABLES = {
-  role: 'role',
   board: 'board',
+  columns: 'columns',
+  rows: 'rows',
   status: 'status',
+  samples: 'samples',
+  quality: 'quality',
+  reprojection: 'reprojection',
+  code: 'code',
 } as const;
 
-const CHOOSING = '1/2/3=模様を表示  c=撮影して校正  space=選び直す';
+const IDLE_STATUS = [
+  'c=撮影を始める',
+  '1/2/3=板を選ぶ',
+  '模様はアプリのページで表示・印刷します',
+].join('   ');
 
-/**
- * How a board is described while it is on screen.
- *
- * The inner corner counts are what the calibration blocks are given, and they
- * are not the number of squares: a 9x6 board shows 10x7 squares. Naming the
- * wrong one here would be copied straight into a solve, where a board whose
- * shape does not match the one found is refused with no indication of which
- * number was wrong.
- */
-function boardStatus(board: BoardSpec): string {
-  const { cell } = layout(board);
-  return `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}、1マス=ステージ${cell}単位）`;
+const CAPTURE_STATUS = [
+  's=1枚撮る   v=solve   p=camera-sourceへ登録   space=やめる',
+  '角度と距離を変えて撮ること。傾けずにずらすだけでは解けません。',
+].join('   /   ');
+
+const DISABLED_STATUS =
+  'この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。';
+
+export interface ProjectOptions {
+  /**
+   * Whether this build carries the calibration extensions.
+   *
+   * Defaults to the feature flag. Named explicitly so a test can build the
+   * variant this repository is not currently committing -- otherwise the
+   * calibration path is checked by nothing until someone flips the flag.
+   */
+  readonly embedExtensions?: boolean;
 }
 
-export function createProject(title: string) {
-  const costumes = backdrops();
+export function createProject(title: string, options: ProjectOptions = {}) {
+  const embedExtensions = options.embedExtensions ?? EMBEDS_EXTENSIONS;
+  const board = BOARDS[0] ?? { columns: 9, rows: 6 };
+  const opening = embedExtensions ? IDLE_STATUS : DISABLED_STATUS;
+
   const blocks: BlockMap = {
-    // Choosing is the state the project starts in and returns to. Both roles
-    // are reachable from here, so one SB3 covers a single machine pointed at
-    // its own screen and a pair of machines alike.
     ...script('start', 48, 48, whenFlagClicked(), [
-      setVariable(VARIABLES.role, 'role', ''),
-      setVariable(VARIABLES.board, 'board', ''),
-      setVariable(VARIABLES.status, 'status', `${title}: ${CHOOSING}`),
-      showVariable(VARIABLES.role, 'role'),
+      setVariable(VARIABLES.board, 'board', `${board.columns}x${board.rows}`),
+      setVariable(VARIABLES.columns, 'columns', String(board.columns)),
+      setVariable(VARIABLES.rows, 'rows', String(board.rows)),
+      setVariable(VARIABLES.status, 'status', `${title}: ${opening}`),
       showVariable(VARIABLES.board, 'board'),
       showVariable(VARIABLES.status, 'status'),
-      switchBackdrop(chooserName),
-    ]),
-    ...script('choose', 48, 320, whenKeyPressed('space'), [
-      setVariable(VARIABLES.role, 'role', ''),
-      setVariable(VARIABLES.board, 'board', ''),
-      setVariable(VARIABLES.status, 'status', CHOOSING),
-      showVariable(VARIABLES.role, 'role'),
-      showVariable(VARIABLES.board, 'board'),
-      showVariable(VARIABLES.status, 'status'),
-      switchBackdrop(chooserName),
-    ]),
-    ...script('capture', 48, 560, whenKeyPressed('c'), [
-      setVariable(VARIABLES.role, 'role', 'capture'),
-      setVariable(
-        VARIABLES.status,
-        'status',
-        '撮影と校正はまだ実装していません。いまは模様の表示だけです。',
-      ),
-      switchBackdrop(chooserName),
+      switchBackdrop(backdropName),
     ]),
   };
 
-  BOARDS.forEach((board, index) => {
+  if (embedExtensions) {
+    BOARDS.forEach((choice, index) => {
+      Object.assign(
+        blocks,
+        // The board is named by its inner corner counts, which is what the
+        // calibration block is given. No picture of it appears anywhere in
+        // this project: a drawing of the target is a thing the finder can
+        // find, and the numbers are what the operator has to get right.
+        script(
+          `board-${index}`,
+          48 + index * 240,
+          280,
+          whenKeyPressed(String(index + 1)),
+          [
+            setVariable(
+              VARIABLES.board,
+              'board',
+              `${choice.columns}x${choice.rows}`,
+            ),
+            setVariable(VARIABLES.columns, 'columns', String(choice.columns)),
+            setVariable(VARIABLES.rows, 'rows', String(choice.rows)),
+            setVariable(VARIABLES.status, 'status', IDLE_STATUS),
+          ],
+        ),
+      );
+    });
+
     Object.assign(
       blocks,
-      script(
-        `display-${index}`,
-        360 + index * 320,
-        48,
-        whenKeyPressed(boardKey(index)),
-        [
-          setVariable(VARIABLES.role, 'role', 'display'),
-          setVariable(
-            VARIABLES.board,
-            'board',
-            `${board.columns}x${board.rows}`,
+      // Taking the camera and opening a session are one step. A camera held
+      // without a session is a camera taken from whoever else wanted it for
+      // nothing, and the operator has no way to see that it happened.
+      script('capture', 48, 480, whenKeyPressed('c'), [
+        extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'showCameraPreview', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        {
+          ...extensionStep(CAMERA_CALIBRATION, 'startCameraCalibration', {
+            CAMERA_ID: CAPTURE_CAMERA,
+            CALIBRATION_ID: 'session-1',
+            SQUARE_METERS: '0.025',
+            MAX_ERROR_PX: '1.5',
+          }),
+          reporters: {
+            COLUMNS: readVariableReporter(VARIABLES.columns, 'columns'),
+            ROWS: readVariableReporter(VARIABLES.rows, 'rows'),
+          },
+        },
+        setVariable(VARIABLES.status, 'status', CAPTURE_STATUS),
+        showVariable(VARIABLES.samples, 'samples'),
+        showVariable(VARIABLES.quality, 'quality'),
+        showVariable(VARIABLES.reprojection, 'error px'),
+        showVariable(VARIABLES.code, 'code'),
+      ]),
+      script('sample', 360, 480, whenKeyPressed('s'), [
+        extensionStep(CAMERA_CALIBRATION, 'addCameraCalibrationSample', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      script('solve', 600, 480, whenKeyPressed('v'), [
+        extensionStep(CAMERA_CALIBRATION, 'solveCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      script('publish', 840, 480, whenKeyPressed('p'), [
+        extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      // Leaving has to hand the camera back. Resetting the display and
+      // leaving the lease held would strand a shared camera for every other
+      // consumer, with nothing on screen to say it had happened.
+      script('leave', 1080, 480, whenKeyPressed('space'), [
+        extensionStep(CAMERA_CALIBRATION, 'cancelCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        setVariable(VARIABLES.status, 'status', IDLE_STATUS),
+        hideVariable(VARIABLES.samples, 'samples'),
+        hideVariable(VARIABLES.quality, 'quality'),
+        hideVariable(VARIABLES.reprojection, 'error px'),
+        hideVariable(VARIABLES.code, 'code'),
+      ]),
+      // The reporters are mirrored into variables rather than shown as their
+      // own monitors. A monitor on an extension reporter is addressed by an ID
+      // the VM derives from the block's arguments, and one written by hand
+      // that does not match shows nothing at all -- with no error to say so.
+      script('watch', 48, 760, whenFlagClicked(), [
+        forever([
+          setVariableFrom(
+            VARIABLES.samples,
+            'samples',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationSampleCount',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
           ),
-          setVariable(VARIABLES.status, 'status', boardStatus(board)),
-          // Every monitor goes away before the board appears. A monitor drawn
-          // over the pattern hides the squares underneath it, and the finder
-          // reports the board as missing rather than as partly covered.
-          hideVariable(VARIABLES.role, 'role'),
-          hideVariable(VARIABLES.board, 'board'),
-          hideVariable(VARIABLES.status, 'status'),
-          switchBackdrop(boardName(board)),
-        ],
-      ),
+          setVariableFrom(
+            VARIABLES.quality,
+            'quality',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationSampleQuality',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          setVariableFrom(
+            VARIABLES.reprojection,
+            'error px',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationReprojectionError',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          // The refusal code, not the state. "sample-too-similar" is the one
+          // the operator needs to see, and it is the one a state reporter
+          // hides: the session goes straight back to ready.
+          setVariableFrom(
+            VARIABLES.code,
+            'code',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationErrorCode',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+        ]),
+      ]),
     );
-  });
+  }
 
+  const costumes = backdrops();
   return {
     targets: [
       {
         isStage: true,
         name: 'Stage',
         variables: {
-          [VARIABLES.role]: ['role', ''],
-          [VARIABLES.board]: ['board', ''],
-          [VARIABLES.status]: ['status', CHOOSING],
+          [VARIABLES.board]: ['board', `${board.columns}x${board.rows}`],
+          [VARIABLES.columns]: ['columns', board.columns],
+          [VARIABLES.rows]: ['rows', board.rows],
+          [VARIABLES.status]: ['status', opening],
+          ...(embedExtensions
+            ? {
+                [VARIABLES.samples]: ['samples', 0],
+                [VARIABLES.quality]: ['quality', 0],
+                [VARIABLES.reprojection]: ['error px', 0],
+                [VARIABLES.code]: ['code', ''],
+              }
+            : {}),
         },
         lists: {},
         broadcasts: {},
@@ -166,16 +286,48 @@ export function createProject(title: string) {
       },
     ],
     monitors: [
-      monitor(VARIABLES.role, 'role', 10, 10),
-      monitor(VARIABLES.board, 'board', 10, 34),
-      monitor(VARIABLES.status, 'status', 10, 58, CHOOSING),
+      monitor(
+        VARIABLES.board,
+        'board',
+        10,
+        10,
+        `${board.columns}x${board.rows}`,
+      ),
+      monitor(VARIABLES.status, 'status', 10, 34, opening),
+      ...(embedExtensions
+        ? [
+            monitor(VARIABLES.samples, 'samples', 10, 58, 0),
+            monitor(VARIABLES.quality, 'quality', 10, 82, 0),
+            monitor(VARIABLES.reprojection, 'error px', 10, 106, 0),
+            monitor(VARIABLES.code, 'code', 10, 130, ''),
+          ]
+        : []),
     ],
-    extensions: [],
+    extensions: embedExtensions ? EXTENSION_PINS.map((pin) => pin.id) : [],
+    // Each embedded extension is carried in the SB3 as a data URL. The source
+    // form holds this reference instead, and the build reconstructs the URL
+    // from embedded-extensions.json, so the bytes live in one place.
+    extensionURLs: Object.fromEntries(
+      (embedExtensions ? EXTENSION_PINS.map((pin) => pin.id) : []).map((id) => [
+        id,
+        `embedded-extension:extensions/${id}.js`,
+      ]),
+    ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
   };
 }
 
-function monitor(id: string, name: string, x: number, y: number, value = '') {
+function readVariableReporter(id: string, name: string) {
+  return { opcode: 'data_variable', fields: { VARIABLE: [name, id] } };
+}
+
+function monitor(
+  id: string,
+  name: string,
+  x: number,
+  y: number,
+  value: string | number = '',
+) {
   return {
     id,
     mode: 'default',
