@@ -19,11 +19,11 @@ importers:
         specifier: 0.12.0
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.8.0
-        version: 0.8.0
+        specifier: 0.8.1
+        version: 0.8.1
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.9.0
-        version: 0.9.0
+        specifier: 0.9.1
+        version: 0.9.1
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -128,16 +128,16 @@ packages:
     resolution: {integrity: sha512-sYt1KBEEm00biA0kjhO+1OkpSO9qb6UI++bXZvtYDQ+2sLMKM1c7vGFD8cEQsLy51cx0vSM8PUufiqb2dIwnQw==}
     engines: {node: '>=22'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.8.0':
-    resolution: {integrity: sha512-S01esf58PSSUEQ/XP8ttmiNxJ099Bgw3xT1yg5cxZxz36BuB/2Pljt2P5PAGOjlpUktyPU8gTTMgEHbQK03gYQ==}
+  '@kubohiroya/turbowarp-camera-calibration@0.8.1':
+    resolution: {integrity: sha512-rTJT7WGzFnbBfJqeBdtqdq7+/FSHg1kh5WKITz5V/uf6s20Oplwkn6F4lmCKM02FiUUwig6iA+1Ei2A0Ejy1Gg==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-camera-source@0.8.0':
     resolution: {integrity: sha512-ziCny1gIJgYJDyVgxNDgU2yGwGLQslACVmL9aYlHAeW3LXlaVNvj1MoGOfrUP77sKkZv8xl9ahKvcI987IDKfg==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.9.0':
-    resolution: {integrity: sha512-N9hDJICwgoArk/rhaD9zAtQFzxLX8BSP39peKwAPBE4gFWl8vOTmwix1z0db0d1bSom+sWX/iOG7pcL1Jzns6Q==}
+  '@kubohiroya/turbowarp-camera-source@0.9.1':
+    resolution: {integrity: sha512-Hb7Y2ID261gFtl/d0kSD/JN9yz0Huvt0oB8L2IEqFLcj+Kwb2QS7iJydF+y8r3hL/RRt6+JdIC0oTYMiPLFwnA==}
     engines: {node: '>=22.18.0'}
 
   '@oxc-project/types@0.149.0':
@@ -1044,14 +1044,14 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.2.0': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.8.0':
+  '@kubohiroya/turbowarp-camera-calibration@0.8.1':
     dependencies:
       '@kubohiroya/turbowarp-camera-source': 0.8.0
       comlink: 4.4.2
 
   '@kubohiroya/turbowarp-camera-source@0.8.0': {}
 
-  '@kubohiroya/turbowarp-camera-source@0.9.0': {}
+  '@kubohiroya/turbowarp-camera-source@0.9.1': {}
 
   '@oxc-project/types@0.149.0': {}
 
