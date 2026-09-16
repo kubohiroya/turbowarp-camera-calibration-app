@@ -14,7 +14,6 @@
  */
 import {
   equals,
-  forever,
   hide,
   ifElse,
   readVariable,
@@ -44,18 +43,39 @@ export function buttonTarget(
   button: ButtonSpec,
   layerOrder: number,
   assetId: string,
+  repaint: { id: string; name: string },
 ): Record<string, unknown> {
   const blocks: BlockMap = {
-    // Every button decides for itself whether it is on screen, from one
-    // variable the stage keeps. Hidden rather than dimmed: a Scratch sprite has
-    // no disabled look, and a dimmed one still takes the click.
+    // Told when to look, rather than looking every frame.
+    //
+    // A `forever` per button reads as the obvious way to write this, and it is
+    // what this did first. Eight of them then called `show` or `hide` on every
+    // frame, and scratch-vm requests a redraw from each of those calls whether
+    // or not anything changed -- which cuts the sequencer's pass over the
+    // threads short for that frame. The stage knows when the answer can differ,
+    // because it is the one deriving it, so it says so and nothing polls.
+    //
+    // Hidden rather than dimmed: a Scratch sprite has no disabled look, and a
+    // dimmed one still takes the click.
     ...script(
-      `${button.name}-watch`,
+      `${button.name}-show`,
       48,
       48,
+      whenBroadcastReceived(repaint.id, repaint.name),
+      button.visibleWhen
+        ? [ifElse(button.visibleWhen, [show], [hide])]
+        : [show],
+    ),
+    // The green flag does not send that message, so each button also settles
+    // itself once at the start. Without this a button would keep whatever
+    // visibility the project was saved with until the first state change.
+    ...script(
+      `${button.name}-start`,
+      48,
+      200,
       whenFlagClicked(),
       button.visibleWhen
-        ? [forever([ifElse(button.visibleWhen, [show], [hide])])]
+        ? [ifElse(button.visibleWhen, [show], [hide])]
         : [show],
     ),
   };
