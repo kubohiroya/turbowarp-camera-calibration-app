@@ -23,12 +23,22 @@ export interface ScratchBlock {
 
 export type BlockMap = Record<string, ScratchBlock>;
 
+export interface Reporter {
+  opcode: string;
+  inputs?: Record<string, unknown>;
+  fields?: Record<string, unknown>;
+}
+
 export interface Step {
   opcode: string;
   inputs?: Record<string, unknown>;
   fields?: Record<string, unknown>;
   /** Shadow blocks this step's inputs point at, keyed by input name. */
   menus?: Record<string, { opcode: string; fields: Record<string, unknown> }>;
+  /** Reporter blocks dropped into this step's inputs, keyed by input name. */
+  reporters?: Record<string, Reporter>;
+  /** Blocks nested inside this one, for a C-shaped block such as forever. */
+  substack?: readonly Step[];
 }
 
 /** A literal string, as a block input takes one. */
@@ -76,6 +86,50 @@ export function switchBackdrop(name: string): Step {
   };
 }
 
+/** An extension's block, which the SB3 names by extension ID and opcode. */
+export function extensionStep(
+  extensionId: string,
+  opcode: string,
+  args: Record<string, string> = {},
+): Step {
+  return {
+    opcode: `${extensionId}_${opcode}`,
+    inputs: Object.fromEntries(
+      Object.entries(args).map(([name, value]) => [name, text(value)]),
+    ),
+  };
+}
+
+export function extensionReporter(
+  extensionId: string,
+  opcode: string,
+  args: Record<string, string> = {},
+): Reporter {
+  return {
+    opcode: `${extensionId}_${opcode}`,
+    inputs: Object.fromEntries(
+      Object.entries(args).map(([name, value]) => [name, text(value)]),
+    ),
+  };
+}
+
+/** Copies a reporter's current value into a variable, so a monitor can show it. */
+export function setVariableFrom(
+  id: string,
+  name: string,
+  reporter: Reporter,
+): Step {
+  return {
+    opcode: 'data_setvariableto',
+    fields: { VARIABLE: variable(id, name) },
+    reporters: { VALUE: reporter },
+  };
+}
+
+export function forever(body: readonly Step[]): Step {
+  return { opcode: 'control_forever', substack: body };
+}
+
 export function whenFlagClicked(): Step {
   return { opcode: 'event_whenflagclicked' };
 }
@@ -101,12 +155,30 @@ export function script(
   hat: Step,
   body: readonly Step[],
 ): BlockMap {
-  const steps = [hat, ...body];
   const blocks: BlockMap = {};
+  writeStack(blocks, prefix, [hat, ...body], null, { x, y });
+  return blocks;
+}
+
+/**
+ * Writes one run of blocks, linking each to the next and to its parent.
+ *
+ * `parent` is the block this run hangs off: null for a script at the top
+ * level, or the C-shaped block whose mouth it sits in. A nested run is not a
+ * child of the block before it, so the two cases cannot share one rule.
+ */
+function writeStack(
+  blocks: BlockMap,
+  prefix: string,
+  steps: readonly Step[],
+  parent: string | null,
+  position?: { x: number; y: number },
+): string | undefined {
   const idOf = (index: number) => `${prefix}-${index}`;
   steps.forEach((step, index) => {
     const id = idOf(index);
     const inputs: Record<string, unknown> = { ...step.inputs };
+
     for (const [name, menu] of Object.entries(step.menus ?? {})) {
       const menuId = `${id}-${name.toLowerCase()}`;
       inputs[name] = [1, menuId];
@@ -120,16 +192,39 @@ export function script(
         topLevel: false,
       };
     }
+
+    for (const [name, reporter] of Object.entries(step.reporters ?? {})) {
+      const reporterId = `${id}-${name.toLowerCase()}`;
+      // The trailing literal is the shadow a reporter covers: it is what the
+      // input falls back to if the reporter is ever pulled out, and leaving it
+      // off makes the input unreadable to the editor.
+      inputs[name] = [3, reporterId, [10, '']];
+      blocks[reporterId] = {
+        opcode: reporter.opcode,
+        next: null,
+        parent: id,
+        inputs: { ...reporter.inputs },
+        fields: { ...reporter.fields },
+        shadow: false,
+        topLevel: false,
+      };
+    }
+
+    if (step.substack !== undefined) {
+      const first = writeStack(blocks, `${id}-sub`, step.substack, id);
+      if (first !== undefined) inputs.SUBSTACK = [2, first];
+    }
+
     blocks[id] = {
       opcode: step.opcode,
       next: index + 1 < steps.length ? idOf(index + 1) : null,
-      parent: index === 0 ? null : idOf(index - 1),
+      parent: index === 0 ? parent : idOf(index - 1),
       inputs,
       fields: { ...step.fields },
       shadow: false,
-      topLevel: index === 0,
-      ...(index === 0 ? { x, y } : {}),
+      topLevel: parent === null && index === 0,
+      ...(index === 0 && position !== undefined ? position : {}),
     };
   });
-  return blocks;
+  return steps.length > 0 ? idOf(0) : undefined;
 }

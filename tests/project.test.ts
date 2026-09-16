@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   backdrops,
@@ -17,15 +19,10 @@ import {
 import { featureFlags } from '../config/feature-flags.ts';
 import type { ScratchBlock } from '../scripts/blocks.ts';
 import {
-  EMBEDDED_EXTENSION_IDS,
   EXTENSION_PINS,
   integrity,
   resolveExtension,
 } from '../scripts/extensions.ts';
-import {
-  FLAG_EXTENSION_ID,
-  featureFlagExtension,
-} from '../scripts/feature-flag-extension.ts';
 
 function stageOf(project: ReturnType<typeof createProject>) {
   return project.targets[0];
@@ -179,19 +176,10 @@ function scriptOrder(
 }
 
 describe('the embedded extensions', () => {
-  const project = createProject('Test');
-
-  it('evaluates the feature flag injector before anything that reads a flag', () => {
-    // Both camera extensions read their flags off globalThis once, while their
-    // module body runs. A flag set afterwards does nothing, and the project
-    // then looks exactly like one built with the flags left off.
-    expect(project.extensions[0]).toBe(FLAG_EXTENSION_ID);
-    expect(EMBEDDED_EXTENSION_IDS[0]).toBe(FLAG_EXTENSION_ID);
-  });
-
   it('keeps the list and the URL map in the same order', () => {
     // A reader that walks the object rather than the array must not get a
     // different answer, so neither reading can be the wrong one.
+    const project = createProject('Test', { embedExtensions: true });
     expect(Object.keys(project.extensionURLs)).toEqual(project.extensions);
     for (const [id, url] of Object.entries(project.extensionURLs)) {
       expect(url).toBe(`embedded-extension:extensions/${id}.js`);
@@ -225,23 +213,140 @@ describe('the embedded extensions', () => {
       }),
     ).toThrowError(/declares extension ID/u);
   });
+});
 
-  it('writes an injector that refuses to run sandboxed', () => {
-    // Sandboxed, it would set the flags on a worker's globalThis and the camera
-    // extensions would never see them -- a silent no-op dressed as a missing
-    // feature.
-    const source = featureFlagExtension();
-    expect(source).toContain(`// ID: ${FLAG_EXTENSION_ID}`);
-    expect(source).toContain('Scratch.extensions.unsandboxed');
-    expect(source).toContain('throw new Error');
-    expect(source).toContain('__TWCS_FEATURE_FLAGS__');
-    expect(source).toContain('__TWCC_FEATURE_FLAGS__');
+describe('the calibration path', () => {
+  const enabled = createProject('Test', { embedExtensions: true });
+  const blocks = enabled.targets[0].blocks as Record<string, ScratchBlock>;
+  const used = [
+    ...new Set(
+      Object.values(blocks)
+        .map((block) => block.opcode)
+        .filter((opcode) => opcode.startsWith('kubohiroya')),
+    ),
+  ];
+
+  /**
+   * Every block the extensions actually publish, read from the API manifests
+   * of the installed packages.
+   *
+   * An opcode TurboWarp does not recognise is dropped when the project loads.
+   * There is no error: the script is simply shorter than it was written, and
+   * the first sign is a calibration that never takes a sample.
+   */
+  const published = new Map<string, { arguments?: Array<{ id: string }> }>();
+  for (const pin of EXTENSION_PINS) {
+    const root = new URL(
+      '.',
+      `file://${createRequire(import.meta.url).resolve(`${pin.packageName}/package.json`)}`,
+    );
+    const manifest = JSON.parse(
+      readFileSync(new URL(pin.apiManifest, root), 'utf8'),
+    ) as {
+      blocks: Array<{ opcode: string; arguments?: Array<{ id: string }> }>;
+    };
+    for (const block of manifest.blocks) {
+      published.set(`${pin.id}_${block.opcode}`, block);
+    }
+  }
+
+  it('places only blocks the pinned extensions publish', () => {
+    expect(used.length).toBeGreaterThan(0);
+    for (const opcode of used) {
+      expect(published.has(opcode), opcode).toBe(true);
+    }
   });
 
-  it('carries the app flag through to both extensions', () => {
-    const source = featureFlagExtension();
-    const enabled = String(featureFlags.captureAndSolveV1);
-    expect(source).toContain(`{"calibrationProfilesV1":${enabled}}`);
-    expect(source).toContain(`{"cameraCalibrationV1":${enabled}}`);
+  it('passes only argument names those blocks declare', () => {
+    // A misspelled input is as quiet as a misspelled opcode: the block runs
+    // with the argument at its default and reports nothing.
+    for (const block of Object.values(blocks)) {
+      if (!block.opcode.startsWith('kubohiroya')) continue;
+      const declared = (published.get(block.opcode)?.arguments ?? []).map(
+        (argument) => argument.id,
+      );
+      for (const name of Object.keys(block.inputs)) {
+        expect(declared, `${block.opcode}.${name}`).toContain(name);
+      }
+    }
+  });
+
+  it('takes the camera and opens a session in one step', () => {
+    // A camera held without a session is a camera taken from whoever else
+    // wanted it, for nothing, with no sign to the operator that it happened.
+    const order = scriptOrder(blocks, 'capture').map((block) => block.opcode);
+    expect(order).toContain('kubohiroyacamerasource_startSharedCamera');
+    expect(order).toContain(
+      'kubohiroyacameracalibration_startCameraCalibration',
+    );
+    expect(
+      order.indexOf('kubohiroyacamerasource_startSharedCamera'),
+    ).toBeLessThan(
+      order.indexOf('kubohiroyacameracalibration_startCameraCalibration'),
+    );
+  });
+
+  it('asks the board for inner corners, matching what it displays', () => {
+    const start = scriptOrder(blocks, 'capture').find(
+      (block) =>
+        block.opcode === 'kubohiroyacameracalibration_startCameraCalibration',
+    );
+    const columns = (start?.inputs.COLUMNS as [number, [number, string]])[1][1];
+    const rows = (start?.inputs.ROWS as [number, [number, string]])[1][1];
+    expect(columns).toBe(String(BOARDS[0]?.columns));
+    expect(rows).toBe(String(BOARDS[0]?.rows));
+  });
+
+  it('shows the refusal code, not just the state', () => {
+    // "sample-too-similar" is the one the operator has to see, and it is the
+    // one the state reporter hides: the session goes straight back to ready.
+    const watched = scriptOrder(blocks, 'watch')
+      .flatMap((block) => (block.opcode === 'control_forever' ? [block] : []))
+      .flatMap((block) => {
+        const first = (block.inputs.SUBSTACK as [number, string])[1];
+        return innerOrder(blocks, first);
+      })
+      .flatMap((block) =>
+        Object.values(block.inputs).flatMap((input) =>
+          Array.isArray(input) && input[0] === 3 ? [String(input[1])] : [],
+        ),
+      )
+      .map((id) => blocks[id]?.opcode);
+    expect(watched).toContain(
+      'kubohiroyacameracalibration_cameraCalibrationErrorCode',
+    );
+    expect(watched).toContain(
+      'kubohiroyacameracalibration_cameraCalibrationSampleCount',
+    );
+  });
+
+  it('carries no extension block when the extensions are not embedded', () => {
+    // The committed build. Placing a block whose extension is absent would
+    // load as a project with holes in its scripts.
+    const off = createProject('Test', { embedExtensions: false });
+    const offBlocks = off.targets[0].blocks as Record<string, ScratchBlock>;
+    expect(
+      Object.values(offBlocks).filter((block) =>
+        block.opcode.startsWith('kubohiroya'),
+      ),
+    ).toEqual([]);
+    expect(off.extensions).toEqual([]);
+    expect(off.extensionURLs).toEqual({});
   });
 });
+
+/** The blocks of a nested run, in the order they run. */
+function innerOrder(
+  blocks: Record<string, ScratchBlock>,
+  first: string,
+): ScratchBlock[] {
+  const order: ScratchBlock[] = [];
+  let id: string | null = first;
+  while (id !== null) {
+    const block: ScratchBlock | undefined = blocks[id];
+    if (!block) break;
+    order.push(block);
+    id = block.next;
+  }
+  return order;
+}

@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "pnpm run build:sb3 && vite build",
-    "build:sb3": "node scripts/build-sb3.ts && node scripts/check-bundle-order.ts",
+    "build:sb3": "node scripts/build-sb3.ts",
     "source:update": "node scripts/generate-source.ts --write",
     "source:check": "node scripts/generate-source.ts",
     "lint": "eslint src scripts config tests vite.config.ts",
@@ -34,8 +34,8 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "@kubohiroya/sb3-toolchain": "0.12.0",
-    "@kubohiroya/turbowarp-camera-calibration": "0.2.0",
-    "@kubohiroya/turbowarp-camera-source": "0.8.0",
+    "@kubohiroya/turbowarp-camera-calibration": "0.4.0",
+    "@kubohiroya/turbowarp-camera-source": "0.9.0",
     "@types/node": "24.13.3",
     "eslint": "9.39.5",
     "prettier": "3.9.6",

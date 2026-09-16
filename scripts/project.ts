@@ -7,8 +7,12 @@ import {
   layout,
   type BoardSpec,
 } from './checkerboard.ts';
-import { EMBEDDED_EXTENSION_IDS } from './extensions.ts';
+import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
+  extensionReporter,
+  extensionStep,
+  forever,
+  setVariableFrom,
   hideVariable,
   script,
   setVariable,
@@ -49,9 +53,24 @@ const VARIABLES = {
   role: 'role',
   board: 'board',
   status: 'status',
+  samples: 'samples',
+  quality: 'quality',
+  reprojection: 'reprojection',
+  code: 'code',
 } as const;
 
-const CHOOSING = '1/2/3=模様を表示  c=撮影して校正  space=選び直す';
+const CAMERA_SOURCE = 'kubohiroyacamerasource';
+const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
+
+/** The camera every role shares, and the board the capture role looks for. */
+const CAPTURE_CAMERA = 'default';
+const CAPTURE_BOARD = BOARDS[0] ?? { columns: 9, rows: 6 };
+
+const CAPTURING = [
+  's=1枚撮る  v=solve  p=camera-sourceへ登録',
+  'x=やり直す  space=役割を選び直す',
+  '角度と距離を変えながら撮ること。同じ位置からの連写は拒否されます。',
+].join('  /  ');
 
 /**
  * How a board is described while it is on screen.
@@ -67,7 +86,22 @@ function boardStatus(board: BoardSpec): string {
   return `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}、1マス=ステージ${cell}単位）`;
 }
 
-export function createProject(title: string) {
+export interface ProjectOptions {
+  /**
+   * Whether this build carries the calibration extensions.
+   *
+   * Defaults to the feature flag. Named explicitly so a test can build the
+   * variant this repository is not currently committing -- otherwise the
+   * calibration path is checked by nothing until someone flips the flag.
+   */
+  readonly embedExtensions?: boolean;
+}
+
+export function createProject(title: string, options: ProjectOptions = {}) {
+  const embedExtensions = options.embedExtensions ?? EMBEDS_EXTENSIONS;
+  const choosing = embedExtensions
+    ? '1/2/3=模様を表示  c=撮影を始める  space=選び直す'
+    : '1/2/3=模様を表示  space=選び直す（この配布物に校正は入っていません）';
   const costumes = backdrops();
   const blocks: BlockMap = {
     // Choosing is the state the project starts in and returns to. Both roles
@@ -76,7 +110,7 @@ export function createProject(title: string) {
     ...script('start', 48, 48, whenFlagClicked(), [
       setVariable(VARIABLES.role, 'role', ''),
       setVariable(VARIABLES.board, 'board', ''),
-      setVariable(VARIABLES.status, 'status', `${title}: ${CHOOSING}`),
+      setVariable(VARIABLES.status, 'status', `${title}: ${choosing}`),
       showVariable(VARIABLES.role, 'role'),
       showVariable(VARIABLES.board, 'board'),
       showVariable(VARIABLES.status, 'status'),
@@ -85,22 +119,122 @@ export function createProject(title: string) {
     ...script('choose', 48, 320, whenKeyPressed('space'), [
       setVariable(VARIABLES.role, 'role', ''),
       setVariable(VARIABLES.board, 'board', ''),
-      setVariable(VARIABLES.status, 'status', CHOOSING),
+      setVariable(VARIABLES.status, 'status', choosing),
       showVariable(VARIABLES.role, 'role'),
       showVariable(VARIABLES.board, 'board'),
       showVariable(VARIABLES.status, 'status'),
       switchBackdrop(chooserName),
     ]),
-    ...script('capture', 48, 560, whenKeyPressed('c'), [
-      setVariable(VARIABLES.role, 'role', 'capture'),
-      setVariable(
-        VARIABLES.status,
-        'status',
-        '撮影と校正はまだ実装していません。いまは模様の表示だけです。',
-      ),
-      switchBackdrop(chooserName),
-    ]),
   };
+
+  if (embedExtensions) {
+    Object.assign(
+      blocks,
+      // Taking the camera and starting a session are one step. A camera held
+      // without a session is a camera taken from whoever else wanted it for
+      // nothing, and the operator has no way to see that it happened.
+      script('capture', 48, 560, whenKeyPressed('c'), [
+        setVariable(VARIABLES.role, 'role', 'capture'),
+        setVariable(
+          VARIABLES.board,
+          'board',
+          `${CAPTURE_BOARD.columns}x${CAPTURE_BOARD.rows}`,
+        ),
+        setVariable(VARIABLES.status, 'status', CAPTURING),
+        switchBackdrop(chooserName),
+        extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'showCameraPreview', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_CALIBRATION, 'startCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+          CALIBRATION_ID: 'session-1',
+          COLUMNS: String(CAPTURE_BOARD.columns),
+          ROWS: String(CAPTURE_BOARD.rows),
+          SQUARE_METERS: '0.025',
+          MAX_ERROR_PX: '1.5',
+        }),
+        showVariable(VARIABLES.samples, 'samples'),
+        showVariable(VARIABLES.quality, 'quality'),
+        showVariable(VARIABLES.reprojection, 'error px'),
+        showVariable(VARIABLES.code, 'code'),
+      ]),
+      script('sample', 360, 560, whenKeyPressed('s'), [
+        extensionStep(CAMERA_CALIBRATION, 'addCameraCalibrationSample', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      script('solve', 680, 560, whenKeyPressed('v'), [
+        extensionStep(CAMERA_CALIBRATION, 'solveCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      script('publish', 1000, 560, whenKeyPressed('p'), [
+        extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+      ]),
+      script('restart', 1320, 560, whenKeyPressed('x'), [
+        extensionStep(CAMERA_CALIBRATION, 'cancelCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        setVariable(VARIABLES.status, 'status', CAPTURING),
+      ]),
+      // The reporters are mirrored into variables rather than shown as their
+      // own monitors. A monitor on an extension reporter is addressed by an ID
+      // the VM derives from the block's arguments, and one written by hand that
+      // does not match shows nothing at all -- with no error to say so.
+      script('watch', 48, 860, whenFlagClicked(), [
+        forever([
+          setVariableFrom(
+            VARIABLES.samples,
+            'samples',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationSampleCount',
+              {
+                CAMERA_ID: CAPTURE_CAMERA,
+              },
+            ),
+          ),
+          setVariableFrom(
+            VARIABLES.quality,
+            'quality',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationSampleQuality',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          setVariableFrom(
+            VARIABLES.reprojection,
+            'error px',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationReprojectionError',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          // The refusal code, not the state. "sample-too-similar" is the one
+          // the operator needs to see, and it is the one a state reporter
+          // hides: the session goes straight back to ready.
+          setVariableFrom(
+            VARIABLES.code,
+            'code',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationErrorCode',
+              {
+                CAMERA_ID: CAPTURE_CAMERA,
+              },
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
 
   BOARDS.forEach((board, index) => {
     Object.assign(
@@ -138,7 +272,15 @@ export function createProject(title: string) {
         variables: {
           [VARIABLES.role]: ['role', ''],
           [VARIABLES.board]: ['board', ''],
-          [VARIABLES.status]: ['status', CHOOSING],
+          [VARIABLES.status]: ['status', choosing],
+          ...(embedExtensions
+            ? {
+                [VARIABLES.samples]: ['samples', 0],
+                [VARIABLES.quality]: ['quality', 0],
+                [VARIABLES.reprojection]: ['error px', 0],
+                [VARIABLES.code]: ['code', ''],
+              }
+            : {}),
         },
         lists: {},
         broadcasts: {},
@@ -169,14 +311,22 @@ export function createProject(title: string) {
     monitors: [
       monitor(VARIABLES.role, 'role', 10, 10),
       monitor(VARIABLES.board, 'board', 10, 34),
-      monitor(VARIABLES.status, 'status', 10, 58, CHOOSING),
+      monitor(VARIABLES.status, 'status', 10, 58, choosing),
+      ...(embedExtensions
+        ? [
+            monitor(VARIABLES.samples, 'samples', 10, 82, 0),
+            monitor(VARIABLES.quality, 'quality', 10, 106, 0),
+            monitor(VARIABLES.reprojection, 'error px', 10, 130, 0),
+            monitor(VARIABLES.code, 'code', 10, 154, ''),
+          ]
+        : []),
     ],
-    extensions: [...EMBEDDED_EXTENSION_IDS],
+    extensions: embedExtensions ? EXTENSION_PINS.map((pin) => pin.id) : [],
     // Each embedded extension is carried in the SB3 as a data URL. The source
     // form holds this reference instead, and the build reconstructs the URL
     // from embedded-extensions.json, so the bytes live in one place.
     extensionURLs: Object.fromEntries(
-      EMBEDDED_EXTENSION_IDS.map((id) => [
+      (embedExtensions ? EXTENSION_PINS.map((pin) => pin.id) : []).map((id) => [
         id,
         `embedded-extension:extensions/${id}.js`,
       ]),
@@ -185,7 +335,13 @@ export function createProject(title: string) {
   };
 }
 
-function monitor(id: string, name: string, x: number, y: number, value = '') {
+function monitor(
+  id: string,
+  name: string,
+  x: number,
+  y: number,
+  value: string | number = '',
+) {
   return {
     id,
     mode: 'default',

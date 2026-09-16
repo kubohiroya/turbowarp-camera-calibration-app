@@ -11,7 +11,7 @@
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { FLAG_EXTENSION_ID } from './feature-flag-extension.ts';
+import { featureFlags } from '../config/feature-flags.ts';
 
 const require = createRequire(import.meta.url);
 
@@ -26,12 +26,11 @@ export interface ExtensionPin {
 }
 
 /**
- * Embedded in this order, and the order is load-bearing.
+ * The extensions the calibration path needs, in load order.
  *
- * Both extensions read their feature flags off `globalThis` once, while their
- * module body runs. A flag set after that is a flag that does nothing, and
- * nothing about the resulting project says so: the blocks are simply absent and
- * the capability is simply missing.
+ * Camera Calibration reads Camera Source's capability, but it reads it when a
+ * calibration starts rather than while it loads, so this order is for a reader
+ * rather than for correctness.
  */
 export const EXTENSION_PINS: readonly ExtensionPin[] = [
   {
@@ -130,50 +129,43 @@ function declaredVersion(packageName: string): string {
 }
 
 /**
- * Every extension ID the project lists, in evaluation order.
+ * Whether this build carries the calibration extensions at all.
  *
- * The flag injector is first and that is the whole point of it: the two camera
- * extensions read their flags while their module body runs, so anything that
- * sets those flags has to have finished before they start.
+ * With the path off, embedding them would add eleven megabytes of OpenCV to
+ * every download for blocks the project never places. Off means a small SB3
+ * that displays the pattern, which is a build someone might actually want --
+ * the display role needs no camera and no extension.
  */
-export const EMBEDDED_EXTENSION_IDS: readonly string[] = [
-  FLAG_EXTENSION_ID,
-  ...EXTENSION_PINS.map((pin) => pin.id),
-];
+export const EMBEDS_EXTENSIONS = featureFlags.captureAndSolveV1;
 
-/** `embedded-extensions.json`, in the order the extensions are evaluated. */
+/** Every extension ID the project lists, in load order. */
+export const EMBEDDED_EXTENSION_IDS: readonly string[] = EMBEDS_EXTENSIONS
+  ? EXTENSION_PINS.map((pin) => pin.id)
+  : [];
+
+/** `embedded-extensions.json`, in the order the extensions are loaded. */
 export function embeddedExtensions(resolved: readonly ResolvedExtension[]) {
   return {
     formatVersion: 1,
-    extensions: [
-      {
-        // Authored here rather than installed, so it carries no npm source.
-        id: FLAG_EXTENSION_ID,
-        path: `extensions/${FLAG_EXTENSION_ID}.js`,
-        mediaType: 'text/javascript',
-        parameters: [],
-        encoding: 'base64',
-      },
-      ...resolved.map((extension) => ({
-        id: extension.id,
-        path: `extensions/${extension.id}.js`,
-        mediaType: 'text/javascript',
-        parameters: [],
-        encoding: 'base64',
-        source: {
-          provider: 'npm',
-          package: extension.packageName,
-          version: extension.version,
-          artifact: extension.artifact,
-          integrity: integrity(extension.javascript),
-          apiManifest: {
-            artifact: extension.apiManifest,
-            path: `extensions/${extension.id}.manifest.json`,
-            formatVersion: 1,
-            integrity: integrity(extension.manifest),
-          },
+    extensions: resolved.map((extension) => ({
+      id: extension.id,
+      path: `extensions/${extension.id}.js`,
+      mediaType: 'text/javascript',
+      parameters: [],
+      encoding: 'base64',
+      source: {
+        provider: 'npm',
+        package: extension.packageName,
+        version: extension.version,
+        artifact: extension.artifact,
+        integrity: integrity(extension.javascript),
+        apiManifest: {
+          artifact: extension.apiManifest,
+          path: `extensions/${extension.id}.manifest.json`,
+          formatVersion: 1,
+          integrity: integrity(extension.manifest),
         },
-      })),
-    ],
+      },
+    })),
   };
 }
