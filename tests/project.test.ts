@@ -608,6 +608,36 @@ describe('the capture buttons', () => {
     expect(stageLoops).toHaveLength(1);
   });
 
+  it('gives the frame back on every pass of the watch loop', () => {
+    // A `forever` whose body never asks to wait is re-entered by the sequencer
+    // until the frame's work budget is gone. Measured in TurboWarp against
+    // this project: thirty thousand passes per frame, 25.0 ms of a 33.3 ms
+    // frame, with the camera off. With the wait it is 8 passes and 0.19 ms.
+    //
+    // The budget spent spinning here is the budget the camera preview and the
+    // frame grab do not get, and this project is nothing but a camera preview
+    // and a frame grab.
+    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
+    const loop = Object.values(stageBlocks).find(
+      (block) => block.opcode === 'control_forever',
+    );
+    const walk = (id: string | null | undefined): string[] => {
+      const found: string[] = [];
+      let at = id;
+      while (at) {
+        const block = stageBlocks[at];
+        if (!block) break;
+        found.push(block.opcode);
+        at = block.next;
+      }
+      return found;
+    };
+    const substack = (
+      loop?.inputs.SUBSTACK as [number, string] | undefined
+    )?.[1];
+    expect(walk(substack)).toContain('control_wait');
+  });
+
   it('settles every button at the green flag as well as on the message', () => {
     // The flag does not send the repaint message. Without its own start script
     // a button would keep whatever visibility the project was saved with.
