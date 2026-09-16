@@ -8,11 +8,13 @@ An app that both displays and photographs a checkerboard pattern, producing and 
 
 Pattern display and capture. Profile export is not implemented yet.
 
-**The chessboard is drawn by the page, not by the SB3.** It needs no camera, no extension and no Scratch, and a page can do what the plan asks of it: print, save a file, report the rendered square size, and never stretch. A fixed-size Scratch stage can do none of those. It also means the capture project contains no chessboard artwork at all -- nothing it draws can be mistaken for the target.
+**The ChArUco board is drawn by the page, not by the SB3.** It needs no camera, no extension and no Scratch, and a page can do what the plan asks of it: print, save a file, report the rendered square size, and never stretch. A fixed-size Scratch stage can do none of those. It also means the capture project contains no ChArUco board artwork at all -- nothing it draws can be mistaken for the target.
 
 - **Page**: three boards to display -- 9x6, 7x5 and 5x4 inner corners. Full screen in place, in a second window for a second screen, saved as SVG, or printed. Scaling is uniform and the remainder is letterboxed.
 - **SB3**: the capture side. One camera, one session; the extensions are embedded at exact pinned versions.
 - Builds for the SB3 and the distribution page, SHA-256 and size recording, and CI.
+
+The small patterns inside the light squares are ArUco markers, and each one names the corners around it. A board that runs off the edge of the frame therefore still contributes the corners it does show. A plain chessboard contributes nothing unless it is seen whole, because nothing in it says which corner is which -- and **the views where the board reaches the frame edge are the ones that decide the principal point and the distortion**, so this is not a small difference.
 
 ### Keys in the SB3
 
@@ -50,7 +52,7 @@ Inner corners are what the calibration block is given, and they are one fewer in
 ## Dependencies and responsibilities
 
 - camera-source: camera acquisition, lease, and capture conditions, plus the contract for the intrinsic calibration profile.
-- camera-calibration: chessboard extraction and solve. Includes OpenCV.
+- camera-calibration: ChArUco board extraction and solve. Includes OpenCV.
 - time-space-sync-app / realtime-motion-capture-app / photogrammetry-app: the consumers of the profile. They receive it as a file.
 
 The only actual dependency is turbowarp-app-shell 0.2.0 in package.json. The use-case-specific connections above are planned, and do not rely on any unreleased early extension. When one is added, its exact version, artifact hash, API manifest, and evaluation order will be pinned.
