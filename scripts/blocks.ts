@@ -92,13 +92,6 @@ export function showVariable(id: string, name: string): Step {
   };
 }
 
-export function hideVariable(id: string, name: string): Step {
-  return {
-    opcode: 'data_hidevariable',
-    fields: { VARIABLE: variable(id, name) },
-  };
-}
-
 export function switchBackdrop(name: string): Step {
   return {
     opcode: 'looks_switchbackdropto',
@@ -144,6 +137,13 @@ export function greaterThan(
   right: Reporter | string,
 ): Reporter {
   return operator('operator_gt', 'OPERAND1', 'OPERAND2', left, right);
+}
+
+export function both(left: Reporter, right: Reporter): Reporter {
+  return {
+    opcode: 'operator_and',
+    booleans: { OPERAND1: left, OPERAND2: right },
+  };
 }
 
 export function either(left: Reporter, right: Reporter): Reporter {

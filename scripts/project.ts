@@ -3,10 +3,17 @@ import { createHash } from 'node:crypto';
 import { BOARDS } from '../src/checkerboard.ts';
 import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
+  both,
+  broadcast,
+  either,
+  equals,
   extensionReporter,
   extensionStep,
   forever,
-  hideVariable,
+  greaterThan,
+  ifElse,
+  not,
+  readVariable,
   script,
   setVariable,
   setVariableFrom,
@@ -15,7 +22,19 @@ import {
   whenFlagClicked,
   whenKeyPressed,
   type BlockMap,
+  type Reporter,
 } from './blocks.ts';
+import { buttonTarget, onBroadcast, uiIs, type ButtonSpec } from './sprites.ts';
+import {
+  handleIcon,
+  leaveIcon,
+  registerIcon,
+  restartIcon,
+  sampleIcon,
+  solveIcon,
+  startIcon,
+  workingIcon,
+} from '../src/icons.ts';
 
 /**
  * The stage. Deliberately featureless.
@@ -39,13 +58,109 @@ export function backdrops(): ReadonlyArray<{ name: string; contents: string }> {
   return [{ name: backdropName, contents: stageBackdrop }];
 }
 
+/**
+ * The strip, left to right, with the slots deliberately reused.
+ *
+ * Start and restart share a slot, and so do solve and register: they are never
+ * both available, and giving each its own place would make the row jump as the
+ * session moves through its states. At most four are on screen at once.
+ */
+export function buttons(): readonly ButtonSpec[] {
+  const y = -140;
+  const capture = both(panelOpen(), either(uiIs('ready'), uiIs('ready+')));
+  return [
+    {
+      name: 'btn-start',
+      costume: { name: 'start', contents: startIcon() },
+      x: -120,
+      y,
+      broadcast: MESSAGES.start,
+      visibleWhen: both(panelOpen(), uiIs('idle')),
+    },
+    {
+      name: 'btn-restart',
+      costume: { name: 'restart', contents: restartIcon() },
+      x: -120,
+      y,
+      broadcast: MESSAGES.start,
+      visibleWhen: both(panelOpen(), not(either(uiIs('idle'), uiIs('busy')))),
+    },
+    {
+      name: 'btn-sample',
+      costume: { name: 'sample', contents: sampleIcon() },
+      x: -40,
+      y,
+      broadcast: MESSAGES.sample,
+      visibleWhen: capture,
+    },
+    {
+      name: 'btn-solve',
+      costume: { name: 'solve', contents: solveIcon() },
+      x: 40,
+      y,
+      broadcast: MESSAGES.solve,
+      visibleWhen: both(panelOpen(), uiIs('ready+')),
+    },
+    {
+      name: 'btn-register',
+      costume: { name: 'register', contents: registerIcon() },
+      x: 40,
+      y,
+      broadcast: MESSAGES.register,
+      visibleWhen: both(panelOpen(), uiIs('solved')),
+    },
+    {
+      name: 'btn-leave',
+      costume: { name: 'leave', contents: leaveIcon() },
+      x: 120,
+      y,
+      broadcast: MESSAGES.leave,
+      // Hidden while an operation runs, like the rest. The key still works, so
+      // there is always a way out of something that will not finish -- it just
+      // is not a button that invites a second press mid-operation.
+      visibleWhen: both(panelOpen(), not(either(uiIs('idle'), uiIs('busy')))),
+    },
+    {
+      // Shown while an operation is running, in the slot the buttons vacate,
+      // so the strip does not simply go empty and look broken.
+      name: 'indicator-working',
+      costume: { name: 'working', contents: workingIcon() },
+      x: -40,
+      y,
+      visibleWhen: uiIs('busy'),
+    },
+    {
+      // The only thing on screen when the strip is closed, and it carries no
+      // board artwork: nothing the detector could find.
+      name: 'btn-handle',
+      costume: { name: 'handle', contents: handleIcon(false) },
+      x: 200,
+      y,
+      broadcast: MESSAGES.panel,
+    },
+  ];
+}
+
 const CAMERA_SOURCE = 'kubohiroyacamerasource';
 const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
 
 /** The camera this project calibrates. Shared with every other consumer. */
 const CAPTURE_CAMERA = 'default';
 
+/** One message per action, so a click and the key beside it run one script. */
+const MESSAGES = {
+  start: { id: 'msg-start', name: 'start' },
+  sample: { id: 'msg-sample', name: 'sample' },
+  solve: { id: 'msg-solve', name: 'solve' },
+  register: { id: 'msg-register', name: 'register' },
+  leave: { id: 'msg-leave', name: 'leave' },
+  panel: { id: 'msg-panel', name: 'panel' },
+} as const;
+
 const VARIABLES = {
+  ui: 'ui',
+  state: 'state',
+  panel: 'panel',
   board: 'board',
   columns: 'columns',
   rows: 'rows',
@@ -70,6 +185,13 @@ const CAPTURE_STATUS = [
 const DISABLED_STATUS =
   'この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。';
 
+/** The strip is closed unless the operator opened it. */
+function equalsPanel(state: 'open' | 'closed'): Reporter {
+  return equals(readVariable(VARIABLES.panel, 'panel'), state);
+}
+
+const panelOpen = () => equalsPanel('open');
+
 export interface ProjectOptions {
   /**
    * Whether this build carries the calibration extensions.
@@ -91,6 +213,17 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       setVariable(VARIABLES.board, 'board', `${board.columns}x${board.rows}`),
       setVariable(VARIABLES.columns, 'columns', String(board.columns)),
       setVariable(VARIABLES.rows, 'rows', String(board.rows)),
+      // Only the calibration build has a state to be in, or a strip to open.
+      ...(embedExtensions
+        ? [
+            setVariable(VARIABLES.ui, 'ui', 'idle'),
+            setVariable(VARIABLES.state, 'state', 'idle'),
+            // Closed to begin with. The strip sits over the camera picture,
+            // and the operator is usually holding a board rather than reading
+            // buttons.
+            setVariable(VARIABLES.panel, 'panel', 'closed'),
+          ]
+        : []),
       setVariable(VARIABLES.status, 'status', `${title}: ${opening}`),
       showVariable(VARIABLES.board, 'board'),
       showVariable(VARIABLES.status, 'status'),
@@ -127,10 +260,31 @@ export function createProject(title: string, options: ProjectOptions = {}) {
 
     Object.assign(
       blocks,
+      // The keys send the same messages the buttons do, so the work lives in
+      // one place per action and the two cannot drift apart.
+      script('key-start', 48, 480, whenKeyPressed('c'), [
+        broadcast(MESSAGES.start.id, MESSAGES.start.name),
+      ]),
+      script('key-sample', 360, 480, whenKeyPressed('s'), [
+        broadcast(MESSAGES.sample.id, MESSAGES.sample.name),
+      ]),
+      script('key-solve', 600, 480, whenKeyPressed('v'), [
+        broadcast(MESSAGES.solve.id, MESSAGES.solve.name),
+      ]),
+      script('key-register', 840, 480, whenKeyPressed('p'), [
+        broadcast(MESSAGES.register.id, MESSAGES.register.name),
+      ]),
+      script('key-leave', 1080, 480, whenKeyPressed('space'), [
+        broadcast(MESSAGES.leave.id, MESSAGES.leave.name),
+      ]),
+      script('key-panel', 1320, 480, whenKeyPressed('tab'), [
+        broadcast(MESSAGES.panel.id, MESSAGES.panel.name),
+      ]),
+
       // Taking the camera and opening a session are one step. A camera held
       // without a session is a camera taken from whoever else wanted it for
       // nothing, and the operator has no way to see that it happened.
-      script('capture', 48, 480, whenKeyPressed('c'), [
+      onBroadcast('do-start', 48, 640, MESSAGES.start, [
         extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
@@ -142,38 +296,35 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             CAMERA_ID: CAPTURE_CAMERA,
             CALIBRATION_ID: 'session-1',
             SQUARE_METERS: '0.025',
+            MARKER_METERS: '0.018',
             MAX_ERROR_PX: '1.5',
           }),
           reporters: {
-            COLUMNS: readVariableReporter(VARIABLES.columns, 'columns'),
-            ROWS: readVariableReporter(VARIABLES.rows, 'rows'),
+            COLUMNS: readVariable(VARIABLES.columns, 'columns'),
+            ROWS: readVariable(VARIABLES.rows, 'rows'),
           },
         },
         setVariable(VARIABLES.status, 'status', CAPTURE_STATUS),
-        showVariable(VARIABLES.samples, 'samples'),
-        showVariable(VARIABLES.quality, 'quality'),
-        showVariable(VARIABLES.reprojection, 'error px'),
-        showVariable(VARIABLES.code, 'code'),
       ]),
-      script('sample', 360, 480, whenKeyPressed('s'), [
+      onBroadcast('do-sample', 360, 640, MESSAGES.sample, [
         extensionStep(CAMERA_CALIBRATION, 'addCameraCalibrationSample', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
       ]),
-      script('solve', 600, 480, whenKeyPressed('v'), [
+      onBroadcast('do-solve', 600, 640, MESSAGES.solve, [
         extensionStep(CAMERA_CALIBRATION, 'solveCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
       ]),
-      script('publish', 840, 480, whenKeyPressed('p'), [
+      onBroadcast('do-register', 840, 640, MESSAGES.register, [
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
       ]),
-      // Leaving has to hand the camera back. Resetting the display and
-      // leaving the lease held would strand a shared camera for every other
-      // consumer, with nothing on screen to say it had happened.
-      script('leave', 1080, 480, whenKeyPressed('space'), [
+      // Leaving has to hand the camera back. Resetting the display and leaving
+      // the lease held would strand a shared camera for every other consumer,
+      // with nothing on screen to say it had happened.
+      onBroadcast('do-leave', 1080, 640, MESSAGES.leave, [
         extensionStep(CAMERA_CALIBRATION, 'cancelCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
@@ -184,11 +335,15 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
         setVariable(VARIABLES.status, 'status', IDLE_STATUS),
-        hideVariable(VARIABLES.samples, 'samples'),
-        hideVariable(VARIABLES.quality, 'quality'),
-        hideVariable(VARIABLES.reprojection, 'error px'),
-        hideVariable(VARIABLES.code, 'code'),
       ]),
+      onBroadcast('do-panel', 1320, 640, MESSAGES.panel, [
+        ifElse(
+          equalsPanel('open'),
+          [setVariable(VARIABLES.panel, 'panel', 'closed')],
+          [setVariable(VARIABLES.panel, 'panel', 'open')],
+        ),
+      ]),
+
       // The reporters are mirrored into variables rather than shown as their
       // own monitors. A monitor on an extension reporter is addressed by an ID
       // the VM derives from the block's arguments, and one written by hand
@@ -234,18 +389,72 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               { CAMERA_ID: CAPTURE_CAMERA },
             ),
           ),
+          // One token the whole interface is decided from. Which buttons make
+          // sense in which state is a table, and a table in one place stays
+          // right; spread across six scripts it drifts, and a button offered
+          // when it cannot work is worse than one that is missing.
+          setVariableFrom(
+            VARIABLES.state,
+            'state',
+            extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationState', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ),
+          ifElse(
+            equals(readVariable(VARIABLES.state, 'state'), 'ready'),
+            [
+              // Eight is the fewest a solve accepts, so below it the solve
+              // button is not offered at all: pressing it would earn a refusal
+              // for doing the obvious thing.
+              ifElse(
+                greaterThan(readVariable(VARIABLES.samples, 'samples'), '7'),
+                [setVariable(VARIABLES.ui, 'ui', 'ready+')],
+                [setVariable(VARIABLES.ui, 'ui', 'ready')],
+              ),
+            ],
+            [
+              ifElse(
+                equals(readVariable(VARIABLES.state, 'state'), 'solved'),
+                [setVariable(VARIABLES.ui, 'ui', 'solved')],
+                [
+                  ifElse(
+                    equals(readVariable(VARIABLES.state, 'state'), 'error'),
+                    [setVariable(VARIABLES.ui, 'ui', 'error')],
+                    [
+                      ifElse(
+                        equals(readVariable(VARIABLES.state, 'state'), 'idle'),
+                        [setVariable(VARIABLES.ui, 'ui', 'idle')],
+                        // acquiring-camera, sampling, solving, cancelling: brief,
+                        // and the buttons go away rather than inviting a second
+                        // press on an operation already running.
+                        [setVariable(VARIABLES.ui, 'ui', 'busy')],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ]),
       ]),
     );
   }
 
   const costumes = backdrops();
+  const strip = embedExtensions ? buttons() : [];
   return {
     targets: [
       {
         isStage: true,
         name: 'Stage',
         variables: {
+          ...(embedExtensions
+            ? {
+                [VARIABLES.ui]: ['ui', 'idle'],
+                [VARIABLES.state]: ['state', 'idle'],
+                [VARIABLES.panel]: ['panel', 'closed'],
+              }
+            : {}),
           [VARIABLES.board]: ['board', `${board.columns}x${board.rows}`],
           [VARIABLES.columns]: ['columns', board.columns],
           [VARIABLES.rows]: ['rows', board.rows],
@@ -260,7 +469,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             : {}),
         },
         lists: {},
-        broadcasts: {},
+        broadcasts: embedExtensions
+          ? Object.fromEntries(
+              Object.values(MESSAGES).map((message) => [
+                message.id,
+                message.name,
+              ]),
+            )
+          : {},
         blocks,
         comments: {},
         currentCostume: 0,
@@ -284,6 +500,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         videoState: 'off',
         textToSpeechLanguage: null,
       },
+      ...strip.map((button, index) =>
+        buttonTarget(button, index + 1, md5(button.costume.contents)),
+      ),
     ],
     monitors: [
       monitor(
@@ -315,10 +534,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
     ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
   };
-}
-
-function readVariableReporter(id: string, name: string) {
-  return { opcode: 'data_variable', fields: { VARIABLE: [name, id] } };
 }
 
 function monitor(
