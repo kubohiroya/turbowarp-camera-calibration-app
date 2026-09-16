@@ -364,6 +364,47 @@ describe('the calibration path', () => {
     }
   });
 
+  it('puts the reason on screen, not only the code', () => {
+    // A black preview has several causes and they look identical. The
+    // extension has the sentence that separates them and the project was
+    // throwing it away, so every report of "it does not work" needed a browser
+    // console to answer -- which is not a thing to ask of someone holding a
+    // board in front of a camera.
+    // The reporter can sit several blocks down, inside a join, so the whole
+    // subtree under each assignment is walked rather than its first child.
+    const reachable = (id: string | undefined): string[] => {
+      const block = id ? blocks[id] : undefined;
+      if (!block) return [];
+      return [
+        block.opcode,
+        ...Object.values(block.inputs).flatMap((input) =>
+          Array.isArray(input)
+            ? input
+                .slice(1)
+                .flatMap((slot) =>
+                  typeof slot === 'string' ? reachable(slot) : [],
+                )
+            : [],
+        ),
+      ];
+    };
+    const mirrored = Object.values(blocks)
+      .filter((block) => block.opcode === 'data_setvariableto')
+      .flatMap((block) => {
+        const value = block.inputs.VALUE as [number, unknown] | undefined;
+        const child = Array.isArray(value) ? value[1] : undefined;
+        return typeof child === 'string' ? reachable(child) : [];
+      });
+    expect(mirrored).toContain(
+      'kubohiroyacameracalibration_cameraCalibrationError',
+    );
+    // And what the camera itself reports, which is what says whether a black
+    // preview has a camera behind it at all.
+    expect(mirrored.join(' ')).toContain(
+      'kubohiroyacamerasource_cameraFrameWidth',
+    );
+  });
+
   it('starts calibrating from the green flag, with nothing to press first', () => {
     // There is no mode to pick. This project does one thing, the board it
     // defaults to is the one the page offers first, and the shutter watches by

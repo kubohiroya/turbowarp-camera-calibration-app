@@ -197,6 +197,8 @@ const VARIABLES = {
   quality: 'quality',
   reprojection: 'reprojection',
   code: 'code',
+  reason: 'reason',
+  camera: 'camera',
 } as const;
 
 const IDLE_STATUS = [
@@ -597,6 +599,48 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               { CAMERA_ID: CAPTURE_CAMERA },
             ),
           ),
+          // What Camera Source thinks it is holding, in one line.
+          //
+          // A black preview has more than one cause and they are not
+          // distinguishable by looking at it: no camera, a camera with no
+          // frame size yet, or a camera that was handed back. The size is what
+          // separates them, and nothing on screen was saying it -- so every
+          // report of "the preview is black" needed a browser console to
+          // answer.
+          setVariableFrom(
+            VARIABLES.camera,
+            'camera',
+            join(
+              join(
+                join(
+                  extensionReporter(CAMERA_SOURCE, 'cameraFrameWidth', {
+                    CAMERA_ID: CAPTURE_CAMERA,
+                  }),
+                  '×',
+                ),
+                extensionReporter(CAMERA_SOURCE, 'cameraFrameHeight', {
+                  CAMERA_ID: CAPTURE_CAMERA,
+                }),
+              ),
+              join(
+                ' ',
+                extensionReporter(CAMERA_SOURCE, 'cameraErrorCode', {
+                  CAMERA_ID: CAPTURE_CAMERA,
+                }),
+              ),
+            ),
+          ),
+          // The code says which refusal; this says what happened. The
+          // extension has had the sentence all along and the project was
+          // throwing it away, leaving the operator -- and anyone they ask for
+          // help -- with eleven characters of kebab case.
+          setVariableFrom(
+            VARIABLES.reason,
+            'reason',
+            extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationError', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ),
           // One token the whole interface is decided from. Which buttons make
           // sense in which state is a table, and a table in one place stays
           // right; spread across six scripts it drifts, and a button offered
@@ -726,6 +770,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.quality]: ['quality', 0],
                 [VARIABLES.reprojection]: ['error px', 0],
                 [VARIABLES.code]: ['code', ''],
+                [VARIABLES.reason]: ['reason', ''],
+                [VARIABLES.camera]: ['camera', ''],
               }
             : {}),
         },
@@ -785,6 +831,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             monitor(VARIABLES.quality, 'quality', 10, 82, 0),
             monitor(VARIABLES.reprojection, 'error px', 10, 106, 0),
             monitor(VARIABLES.code, 'code', 10, 130, ''),
+            monitor(VARIABLES.camera, 'camera', 10, 154, ''),
+            monitor(VARIABLES.reason, 'reason', 10, 178, ''),
           ]
         : []),
     ],
