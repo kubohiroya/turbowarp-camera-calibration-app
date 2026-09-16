@@ -144,12 +144,18 @@ function openPattern(board: (typeof BOARDS)[number]): void {
 }
 
 const patterns = element('section', '');
-patterns.append(element('h2', '市松模様を表示する'));
+patterns.append(element('h2', 'ChArUcoボードを表示する'));
 const intro = element(
   'p',
-  '校正する側のカメラに見せるための模様です。表示した画面、または印刷した紙のどちらでも構いません。内部校正にマスの実寸は要らないので、正確に測る必要はありません。',
+  '校正する側のカメラに見せるための板です。表示した画面、または印刷した紙のどちらでも構いません。内部校正にマスの実寸は要らないので、正確に測る必要はありません。',
 );
 patterns.append(intro);
+patterns.append(
+  element(
+    'p',
+    '白いマスの中にある小さな模様はArUcoマーカーで、それぞれが周囲のコーナーに名前を与えます。おかげで板が画面からはみ出していても、写っている分だけを校正に使えます。ふつうの市松模様は全体が写っていないと1点も使えません。',
+  ),
+);
 
 const boardList = document.createElement('ul');
 boardList.className = 'boards';
@@ -181,7 +187,7 @@ for (const board of BOARDS) {
     const url = URL.createObjectURL(patternFile(board));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `chessboard-${boardId(board)}.svg`;
+    link.download = `charuco-${boardId(board)}.svg`;
     link.click();
     URL.revokeObjectURL(url);
   });

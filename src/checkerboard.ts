@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 /**
- * The chessboard the operator points a camera at.
+ * The ChArUco board the operator points a camera at.
  *
  * Drawn as SVG in the page rather than inside the SB3. The pattern needs no
  * camera, no extension and no arithmetic, and the things the plan asks of it --
@@ -9,7 +9,16 @@
  *
  * Geometry lives here rather than in the markup so that the printed sheet, the
  * full-screen view and the saved file are the same board.
+ *
+ * A marker sits in every light square. That is what lets a view that runs off
+ * the edge of the frame still be used: the markers name the corners around
+ * them, where a plain chessboard has to be found whole because nothing in it
+ * says which corner is which. The corners near the frame edge are the ones that
+ * decide the principal point and the distortion, so being able to keep those
+ * views matters more than it sounds.
  */
+
+import { MARKER_CELLS, markerCells } from './aruco.ts';
 
 export interface BoardSpec {
   /** Inner corners across, which is one fewer than the squares across. */
@@ -35,6 +44,14 @@ export interface BoardLayout extends BoardSpec {
  * far away or short of resolution, where a 40-unit square lands on too few
  * pixels to locate its corners.
  */
+/**
+ * How much of a light square the marker fills.
+ *
+ * White has to remain around it, or the detector cannot separate the marker's
+ * black border from the dark squares the light square touches.
+ */
+export const MARKER_RATIO = 0.72;
+
 export const BOARDS: readonly BoardSpec[] = [
   { columns: 9, rows: 6 },
   { columns: 7, rows: 5 },
@@ -97,14 +114,23 @@ export function patternSvg(
 ): string {
   const { cell, quietX, quietY } = layout(board, width, height);
   const squares: string[] = [];
+  const markers: string[] = [];
+  // Markers go in the light squares, scanned row by row, numbered from zero --
+  // the order OpenCV assigns when it builds the same board, checked against a
+  // board it drew itself rather than assumed.
+  let markerId = 0;
   for (let row = 0; row <= board.rows; row += 1) {
     for (let column = 0; column <= board.columns; column += 1) {
-      if ((row + column) % 2 !== 0) continue;
       const x = quietX + column * cell;
       const y = quietY + row * cell;
-      squares.push(
-        `<rect x="${x}" y="${y}" width="${cell}" height="${cell}"/>`,
-      );
+      if ((row + column) % 2 === 0) {
+        squares.push(
+          `<rect x="${x}" y="${y}" width="${cell}" height="${cell}"/>`,
+        );
+        continue;
+      }
+      markers.push(markerSvg(markerId, x, y, cell));
+      markerId += 1;
     }
   }
   // preserveAspectRatio keeps the scaling uniform and letterboxes the rest. A
@@ -115,7 +141,43 @@ export function patternSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"` +
     ` preserveAspectRatio="xMidYMid meet" width="100%" height="100%">` +
     `<rect width="${width}" height="${height}" fill="#ffffff"/>` +
-    `<g fill="#000000">${squares.join('')}</g>` +
+    `<g fill="#000000">${squares.join('')}${markers.join('')}</g>` +
     '</svg>'
   );
+}
+
+/**
+ * One marker, centred in its light square.
+ *
+ * Only the black cells are drawn, over the white square already beneath. The
+ * border ring is part of the marker and is what the detector finds first, so it
+ * is drawn as a single rectangle with the white data cells punched out of it --
+ * fewer shapes than one rectangle per cell, and no seams between them for a
+ * renderer to leave a hairline in.
+ */
+function markerSvg(
+  id: number,
+  squareX: number,
+  squareY: number,
+  cell: number,
+): string {
+  const side = cell * MARKER_RATIO;
+  const originX = squareX + (cell - side) / 2;
+  const originY = squareY + (cell - side) / 2;
+  const step = side / MARKER_CELLS;
+  const cells = markerCells(id);
+  const dark: string[] = [];
+  for (let row = 0; row < MARKER_CELLS; row += 1) {
+    for (let column = 0; column < MARKER_CELLS; column += 1) {
+      if (cells[row]?.[column]) continue;
+      dark.push(
+        `<rect x="${round(originX + column * step)}" y="${round(originY + row * step)}" width="${round(step)}" height="${round(step)}"/>`,
+      );
+    }
+  }
+  return dark.join('');
+}
+
+function round(value: number): string {
+  return (Math.round(value * 1000) / 1000).toString();
 }
