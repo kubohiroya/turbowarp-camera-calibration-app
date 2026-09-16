@@ -1,9 +1,19 @@
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { backdrops, createProject, md5 } from './project.ts';
+import {
+  EXTENSION_PINS,
+  embeddedExtensions,
+  resolveExtension,
+} from './extensions.ts';
+import {
+  FLAG_EXTENSION_ID,
+  featureFlagExtension,
+} from './feature-flag-extension.ts';
 const root = new URL('../', import.meta.url);
 const config = JSON.parse(
   await readFile(new URL('config/app.json', root), 'utf8'),
 ) as { title: string };
+const extensions = EXTENSION_PINS.map(resolveExtension);
 const assets = backdrops().map((costume) => ({
   ...costume,
   file: `${md5(costume.contents)}.svg`,
@@ -15,7 +25,7 @@ const files = new Map<string, string>([
   ],
   [
     'apps/main/source/embedded-extensions.json',
-    JSON.stringify({ formatVersion: 1, extensions: [] }, null, 2) + '\n',
+    JSON.stringify(embeddedExtensions(extensions), null, 2) + '\n',
   ],
   [
     'apps/main/source/sb3-source.json',
@@ -34,6 +44,20 @@ const files = new Map<string, string>([
 ]);
 for (const asset of assets) {
   files.set(`apps/main/source/assets/${asset.file}`, asset.contents);
+}
+files.set(
+  `apps/main/source/extensions/${FLAG_EXTENSION_ID}.js`,
+  featureFlagExtension(),
+);
+for (const extension of extensions) {
+  files.set(
+    `apps/main/source/extensions/${extension.id}.js`,
+    extension.javascript.toString('utf8'),
+  );
+  files.set(
+    `apps/main/source/extensions/${extension.id}.manifest.json`,
+    extension.manifest.toString('utf8'),
+  );
 }
 const write = process.argv.includes('--write');
 for (const [path, contents] of files) {

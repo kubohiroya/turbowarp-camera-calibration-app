@@ -1,4 +1,52 @@
 {
   "formatVersion": 1,
-  "extensions": []
+  "extensions": [
+    {
+      "id": "kubohiroyacalibrationappflags",
+      "path": "extensions/kubohiroyacalibrationappflags.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64"
+    },
+    {
+      "id": "kubohiroyacamerasource",
+      "path": "extensions/kubohiroyacamerasource.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64",
+      "source": {
+        "provider": "npm",
+        "package": "@kubohiroya/turbowarp-camera-source",
+        "version": "0.8.0",
+        "artifact": "dist/camera-source.js",
+        "integrity": "sha256-40j32xHu1a11SAJK5jhy8uClkdITjvSYKgnGHKyeckg=",
+        "apiManifest": {
+          "artifact": "dist/extension-manifest.json",
+          "path": "extensions/kubohiroyacamerasource.manifest.json",
+          "formatVersion": 1,
+          "integrity": "sha256-r/kMjdx4gHp3sxUebnyXCQDUbBom15Jelr0iH7v1Jh8="
+        }
+      }
+    },
+    {
+      "id": "kubohiroyacameracalibration",
+      "path": "extensions/kubohiroyacameracalibration.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64",
+      "source": {
+        "provider": "npm",
+        "package": "@kubohiroya/turbowarp-camera-calibration",
+        "version": "0.2.0",
+        "artifact": "dist/camera-calibration.js",
+        "integrity": "sha256-4teHdypP52nlwLJFdzxfIPfX13rSDl3FkpY4lyVZcyA=",
+        "apiManifest": {
+          "artifact": "dist/extension-manifest.json",
+          "path": "extensions/kubohiroyacameracalibration.manifest.json",
+          "formatVersion": 1,
+          "integrity": "sha256-GrESzOP4atkQwoQcEFDDT7zRKQpG1fhygAf/w6PUo9I="
+        }
+      }
+    }
+  ]
 }

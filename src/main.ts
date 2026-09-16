@@ -57,7 +57,7 @@ keys.append(element('h2', 'SB3の操作'));
 const keyList = document.createElement('ul');
 for (const line of [
   '1 / 2 / 3 … 市松模様を表示する（内側コーナー 9x6 / 7x5 / 5x4）',
-  'c … 撮影して校正する側になる（段階2で実装）',
+  'c … 撮影して校正する側になる（このビルドのフラグ状態は下に表示）',
   'space … 役割を選び直す。模様を消してモニタを戻す',
 ])
   keyList.append(element('li', line));
@@ -83,8 +83,17 @@ for (const feature of config.plannedFeatures)
   list.append(element('li', feature));
 plan.append(list);
 mount.append(plan);
-if (featureFlags.experimentalRuntime) {
-  errors.show({
-    message: '実験機能は未実装です。フラグをOFFに戻してください。',
-  });
-}
+const build = element('section', '');
+build.append(element('h2', 'このビルドの状態'));
+const buildList = document.createElement('ul');
+buildList.append(
+  element(
+    'li',
+    featureFlags.captureAndSolveV1
+      ? '撮影と校正：有効。SB3に埋め込んだcamera-source / camera-calibrationの機能がONで起動します。'
+      : '撮影と校正：無効。拡張はSB3に埋め込まれていますが、起動時のフラグがOFFなのでブロックは現れません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update すると有効になります。',
+  ),
+);
+buildList.append(element('li', '模様の表示：有効。拡張もカメラも使いません。'));
+build.append(buildList);
+mount.append(build);

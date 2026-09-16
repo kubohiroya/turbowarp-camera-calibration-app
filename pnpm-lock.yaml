@@ -18,6 +18,12 @@ importers:
       '@kubohiroya/sb3-toolchain':
         specifier: 0.12.0
         version: 0.12.0
+      '@kubohiroya/turbowarp-camera-calibration':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@kubohiroya/turbowarp-camera-source':
+        specifier: 0.8.0
+        version: 0.8.0
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -122,6 +128,14 @@ packages:
     resolution: {integrity: sha512-sYt1KBEEm00biA0kjhO+1OkpSO9qb6UI++bXZvtYDQ+2sLMKM1c7vGFD8cEQsLy51cx0vSM8PUufiqb2dIwnQw==}
     engines: {node: '>=22'}
 
+  '@kubohiroya/turbowarp-camera-calibration@0.2.0':
+    resolution: {integrity: sha512-1gAeWMds/FPTyZoVm2vdo3qlF5Uww5o/k41/hzz1OdFMGBjCHomsZIKbbAEutA7AwHfDCZcwGI13vutnQGRuBg==}
+    engines: {node: '>=22.18.0'}
+
+  '@kubohiroya/turbowarp-camera-source@0.8.0':
+    resolution: {integrity: sha512-ziCny1gIJgYJDyVgxNDgU2yGwGLQslACVmL9aYlHAeW3LXlaVNvj1MoGOfrUP77sKkZv8xl9ahKvcI987IDKfg==}
+    engines: {node: '>=22.18.0'}
+
   '@oxc-project/types@0.149.0':
     resolution: {integrity: sha512-Efcc+iF0j3Bf67YjEqIqWXbX5XddXoK/Mw4K1/JuXwRCZ8N16VR7iT23nlCc9XrveFVh/E5Rqs2StT0V8v9LdA==}
 
@@ -223,6 +237,9 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@techstark/opencv-js@4.12.0-release.1':
+    resolution: {integrity: sha512-LtTaph9v/HqLPXEg3m1xs2h7QJh10pUpuDT0nj8g77lelWnTwwQrehtd+fXElLOdrkqc4Fea6Z/sJBvEJLYPfw==}
 
   '@tokenizer/inflate@0.4.1':
     resolution: {integrity: sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==}
@@ -1023,6 +1040,13 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.2.0': {}
 
+  '@kubohiroya/turbowarp-camera-calibration@0.2.0':
+    dependencies:
+      '@kubohiroya/turbowarp-camera-source': 0.8.0
+      '@techstark/opencv-js': 4.12.0-release.1
+
+  '@kubohiroya/turbowarp-camera-source@0.8.0': {}
+
   '@oxc-project/types@0.149.0': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.8':
@@ -1071,6 +1095,8 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@techstark/opencv-js@4.12.0-release.1': {}
 
   '@tokenizer/inflate@0.4.1':
     dependencies:

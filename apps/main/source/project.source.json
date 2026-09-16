@@ -969,7 +969,16 @@
       "isDiscrete": true
     }
   ],
-  "extensions": [],
+  "extensions": [
+    "kubohiroyacalibrationappflags",
+    "kubohiroyacamerasource",
+    "kubohiroyacameracalibration"
+  ],
+  "extensionURLs": {
+    "kubohiroyacalibrationappflags": "embedded-extension:extensions/kubohiroyacalibrationappflags.js",
+    "kubohiroyacamerasource": "embedded-extension:extensions/kubohiroyacamerasource.js",
+    "kubohiroyacameracalibration": "embedded-extension:extensions/kubohiroyacameracalibration.js"
+  },
   "meta": {
     "semver": "3.0.0",
     "vm": "11.3.0",

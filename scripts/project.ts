@@ -7,6 +7,7 @@ import {
   layout,
   type BoardSpec,
 } from './checkerboard.ts';
+import { EMBEDDED_EXTENSION_IDS } from './extensions.ts';
 import {
   hideVariable,
   script,
@@ -170,7 +171,16 @@ export function createProject(title: string) {
       monitor(VARIABLES.board, 'board', 10, 34),
       monitor(VARIABLES.status, 'status', 10, 58, CHOOSING),
     ],
-    extensions: [],
+    extensions: [...EMBEDDED_EXTENSION_IDS],
+    // Each embedded extension is carried in the SB3 as a data URL. The source
+    // form holds this reference instead, and the build reconstructs the URL
+    // from embedded-extensions.json, so the bytes live in one place.
+    extensionURLs: Object.fromEntries(
+      EMBEDDED_EXTENSION_IDS.map((id) => [
+        id,
+        `embedded-extension:extensions/${id}.js`,
+      ]),
+    ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
   };
 }

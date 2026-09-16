@@ -20,11 +20,24 @@ execFileSync(
   { stdio: 'inherit' },
 );
 const bytes = await readFile(output);
+
+// The SB3 carries the OpenCV build, so it is megabytes and expected to be. The
+// ceiling is not a size target; it is there to catch the archive growing by
+// something nobody meant to add -- a second copy of an extension, an asset that
+// should have been pruned -- which otherwise shows up only as a slow download.
+const MAXIMUM_BYTES = 8 * 1024 * 1024;
+if (bytes.byteLength > MAXIMUM_BYTES) {
+  throw new Error(
+    `${output} is ${bytes.byteLength} B, over the ${MAXIMUM_BYTES} B ceiling. Check what was added before raising it.`,
+  );
+}
+
 await writeFile(
   'public/downloads/release.json',
   JSON.stringify(
     {
       file: 'app.sb3',
+      bytes: bytes.byteLength,
       sha256: createHash('sha256').update(bytes).digest('hex'),
     },
     null,
