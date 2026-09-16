@@ -16,6 +16,8 @@ import {
   forever,
   greaterThan,
   ifElse,
+  ifThen,
+  join,
   not,
   readVariable,
   script,
@@ -171,6 +173,7 @@ const MESSAGES = {
   register: { id: 'msg-register', name: 'register' },
   manual: { id: 'msg-manual', name: 'manual' },
   leave: { id: 'msg-leave', name: 'leave' },
+  repaint: { id: 'msg-repaint', name: 'repaint' },
   panel: { id: 'msg-panel', name: 'panel' },
 } as const;
 
@@ -178,6 +181,8 @@ const VARIABLES = {
   ui: 'ui',
   state: 'state',
   panel: 'panel',
+  painted: 'painted',
+  translated: 'translated',
   board: 'board',
   columns: 'columns',
   rows: 'rows',
@@ -323,6 +328,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               'marker',
               declaredSizes(board).marker,
             ),
+            setVariable(VARIABLES.painted, 'painted', ''),
+            setVariable(VARIABLES.translated, 'translated', ''),
             setVariable(VARIABLES.ui, 'ui', 'idle'),
             setVariable(VARIABLES.state, 'state', 'idle'),
             // Closed to begin with. The strip sits over the camera picture,
@@ -544,11 +551,29 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               CAMERA_ID: CAPTURE_CAMERA,
             }),
           ),
-          ...chain(
-            () => readVariable(VARIABLES.guidance, 'guidance'),
-            ADVICE,
-            VARIABLES.advice,
-            'advice',
+          // Translated only when it changes. The table is eight branches deep,
+          // and the guidance holds still for seconds at a time while the
+          // operator moves the board.
+          ifThen(
+            not(
+              equals(
+                readVariable(VARIABLES.guidance, 'guidance'),
+                readVariable(VARIABLES.translated, 'translated'),
+              ),
+            ),
+            [
+              setVariableFrom(
+                VARIABLES.translated,
+                'translated',
+                readVariable(VARIABLES.guidance, 'guidance'),
+              ),
+              ...chain(
+                () => readVariable(VARIABLES.guidance, 'guidance'),
+                ADVICE,
+                VARIABLES.advice,
+                'advice',
+              ),
+            ],
           ),
           setVariableFrom(
             VARIABLES.automatic,
@@ -617,6 +642,32 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ),
             ],
           ),
+          // The buttons are told to look only when the answer can differ from
+          // the one they are already showing. In the steady state -- which is
+          // most of a session, since `ui` changes a handful of times -- this
+          // sends nothing, and no sprite touches its visibility.
+          ifThen(
+            not(
+              equals(
+                readVariable(VARIABLES.painted, 'painted'),
+                join(
+                  readVariable(VARIABLES.ui, 'ui'),
+                  readVariable(VARIABLES.panel, 'panel'),
+                ),
+              ),
+            ),
+            [
+              setVariableFrom(
+                VARIABLES.painted,
+                'painted',
+                join(
+                  readVariable(VARIABLES.ui, 'ui'),
+                  readVariable(VARIABLES.panel, 'panel'),
+                ),
+              ),
+              broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+            ],
+          ),
         ]),
       ]),
     );
@@ -643,6 +694,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           [VARIABLES.status]: ['status', opening],
           ...(embedExtensions
             ? {
+                [VARIABLES.painted]: ['painted', ''],
+                [VARIABLES.translated]: ['translated', ''],
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
@@ -688,7 +741,12 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         textToSpeechLanguage: null,
       },
       ...strip.map((button, index) =>
-        buttonTarget(button, index + 1, md5(button.costume.contents)),
+        buttonTarget(
+          button,
+          index + 1,
+          md5(button.costume.contents),
+          MESSAGES.repaint,
+        ),
       ),
     ],
     monitors: [

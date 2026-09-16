@@ -426,7 +426,14 @@ function scriptOrder(
 describe('the capture buttons', () => {
   const project = createProject('Test', { embedExtensions: true });
   const stage = project.targets[0] as StageTarget;
-  const sprites = project.targets.filter((target) => !target.isStage);
+  const sprites = project.targets.filter(
+    (target) => !target.isStage,
+  ) as unknown as Array<{
+    name: string;
+    visible: boolean;
+    costumes: unknown[];
+    blocks: Record<string, ScratchBlock>;
+  }>;
   const strip = buttons();
 
   /** The states the stage's watch loop can put in `ui`. */
@@ -580,6 +587,36 @@ describe('the capture buttons', () => {
     for (const button of strip) {
       if (!button.broadcast) continue;
       expect(received, button.name).toContain(button.broadcast.id);
+    }
+  });
+
+  it('polls from one place, not from every sprite', () => {
+    // Eight sprites each running their own `forever` called show or hide on
+    // every frame, and scratch-vm requests a redraw from each of those calls
+    // whether or not anything changed -- which ends the sequencer's pass over
+    // the threads for that frame. The stage derives the answer, so the stage
+    // is the one that says when it changed.
+    for (const sprite of sprites) {
+      const loops = Object.values(sprite.blocks).filter(
+        (block) => block.opcode === 'control_forever',
+      );
+      expect(loops, sprite.name).toHaveLength(0);
+    }
+    const stageLoops = Object.values(
+      stage.blocks as Record<string, ScratchBlock>,
+    ).filter((block) => block.opcode === 'control_forever');
+    expect(stageLoops).toHaveLength(1);
+  });
+
+  it('settles every button at the green flag as well as on the message', () => {
+    // The flag does not send the repaint message. Without its own start script
+    // a button would keep whatever visibility the project was saved with.
+    for (const sprite of sprites) {
+      const hats = Object.values(sprite.blocks)
+        .filter((block) => block.topLevel)
+        .map((block) => block.opcode);
+      expect(hats, sprite.name).toContain('event_whenflagclicked');
+      expect(hats, sprite.name).toContain('event_whenbroadcastreceived');
     }
   });
 

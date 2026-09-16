@@ -112,6 +112,15 @@ export function forever(body: readonly Step[]): Step {
   return { opcode: 'control_forever', substack: body };
 }
 
+/** A plain `if`, for the case where nothing happens when the answer is no. */
+export function ifThen(condition: Reporter, then: readonly Step[]): Step {
+  return {
+    opcode: 'control_if',
+    booleans: { CONDITION: condition },
+    substack: then,
+  };
+}
+
 export function ifElse(
   condition: Reporter,
   then: readonly Step[],
