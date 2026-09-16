@@ -25,7 +25,10 @@ const bytes = await readFile(output);
 // ceiling is not a size target; it is there to catch the archive growing by
 // something nobody meant to add -- a second copy of an extension, an asset that
 // should have been pruned -- which otherwise shows up only as a slow download.
-const MAXIMUM_BYTES = 8 * 1024 * 1024;
+// Measured: 3,220 B with the calibration path off, 2,221,684 B with it on.
+// The ceiling was 8 MiB when the extension carried a 10.9 MB OpenCV; against a
+// 2.2 MB archive that would no longer catch anything.
+const MAXIMUM_BYTES = 4 * 1024 * 1024;
 if (bytes.byteLength > MAXIMUM_BYTES) {
   throw new Error(
     `${output} is ${bytes.byteLength} B, over the ${MAXIMUM_BYTES} B ceiling. Check what was added before raising it.`,
