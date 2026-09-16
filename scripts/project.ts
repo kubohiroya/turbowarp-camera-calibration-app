@@ -23,11 +23,13 @@ import {
   whenKeyPressed,
   type BlockMap,
   type Reporter,
+  type Step,
 } from './blocks.ts';
 import { buttonTarget, onBroadcast, uiIs, type ButtonSpec } from './sprites.ts';
 import {
   handleIcon,
   leaveIcon,
+  manualIcon,
   registerIcon,
   restartIcon,
   sampleIcon,
@@ -94,6 +96,16 @@ export function buttons(): readonly ButtonSpec[] {
       visibleWhen: capture,
     },
     {
+      // Shares the sample slot: the shutter is either being pressed by a
+      // person or by the extension, so these two are never both on offer.
+      name: 'btn-manual',
+      costume: { name: 'manual', contents: manualIcon() },
+      x: -40,
+      y,
+      broadcast: MESSAGES.manual,
+      visibleWhen: both(panelOpen(), uiIs('auto')),
+    },
+    {
       name: 'btn-solve',
       costume: { name: 'solve', contents: solveIcon() },
       x: 40,
@@ -153,6 +165,7 @@ const MESSAGES = {
   sample: { id: 'msg-sample', name: 'sample' },
   solve: { id: 'msg-solve', name: 'solve' },
   register: { id: 'msg-register', name: 'register' },
+  manual: { id: 'msg-manual', name: 'manual' },
   leave: { id: 'msg-leave', name: 'leave' },
   panel: { id: 'msg-panel', name: 'panel' },
 } as const;
@@ -165,6 +178,9 @@ const VARIABLES = {
   columns: 'columns',
   rows: 'rows',
   status: 'status',
+  guidance: 'guidance',
+  advice: 'advice',
+  automatic: 'automatic',
   samples: 'samples',
   quality: 'quality',
   reprojection: 'reprojection',
@@ -178,12 +194,64 @@ const IDLE_STATUS = [
 ].join('   ');
 
 const CAPTURE_STATUS = [
+  'ボードを持って、角度と距離を変えながらカメラに見せてください。',
+  '撮るのは拡張がやります。指示は下に出ます。',
+  'a=自分で撮る   space=やめる',
+].join('   /   ');
+
+/** Once the operator has taken the shutter back. */
+const MANUAL_STATUS = [
   's=1枚撮る   v=solve   p=camera-sourceへ登録   space=やめる',
   '角度と距離を変えて撮ること。傾けずにずらすだけでは解けません。',
 ].join('   /   ');
 
+/**
+ * The guidance codes, as something to do.
+ *
+ * Instructions rather than the codes themselves: the person reading this is
+ * holding a board in front of a camera, and is in no position to translate a
+ * diagnosis into a remedy. The two movement cases stay separate on purpose --
+ * sliding the board sideways answers `move-or-tilt` and does nothing for
+ * `tilt-more`, because focal length and distance stay inseparable until the
+ * board is turned.
+ */
+const ADVICE: ReadonlyArray<readonly [string, string]> = [
+  ['show-the-board', 'ボードをカメラに写してください'],
+  ['hold-steadier', 'ぶれています。少し止めるか、近づけてください'],
+  ['move-or-tilt', '同じ見え方です。動かすか傾けてください'],
+  ['tilt-more', '傾けてください。横にずらすだけでは解けません'],
+  ['keep-going', 'そのまま、角度と距離を変えながら続けてください'],
+  ['solving', '計算しています'],
+  ['limit-reached', '上限まで撮りました。vで解いてください'],
+  ['complete', '完了しました。pでcamera-sourceへ登録できます'],
+];
+
 const DISABLED_STATUS =
   'この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。';
+
+/**
+ * A nested if/else chain over one variable, written out as blocks.
+ *
+ * Scratch has no case statement, so a table like this becomes a stack of
+ * if/else blocks whichever way it is written. Generating it keeps the table
+ * readable here and keeps the order of the branches from drifting.
+ */
+function chain(
+  read: () => Reporter,
+  cases: ReadonlyArray<readonly [string, string]>,
+  target: string,
+  label: string,
+): Step[] {
+  const [head, ...rest] = cases;
+  if (!head) return [setVariable(target, label, '')];
+  return [
+    ifElse(
+      equals(read(), head[0]),
+      [setVariable(target, label, head[1])],
+      chain(read, rest, target, label),
+    ),
+  ];
+}
 
 /** The strip is closed unless the operator opened it. */
 function equalsPanel(state: 'open' | 'closed'): Reporter {
@@ -227,6 +295,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       setVariable(VARIABLES.status, 'status', `${title}: ${opening}`),
       showVariable(VARIABLES.board, 'board'),
       showVariable(VARIABLES.status, 'status'),
+      // The one thing the operator reads while their hands are busy.
+      ...(embedExtensions ? [showVariable(VARIABLES.advice, 'advice')] : []),
       switchBackdrop(backdropName),
     ]),
   };
@@ -277,6 +347,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       script('key-leave', 1080, 480, whenKeyPressed('space'), [
         broadcast(MESSAGES.leave.id, MESSAGES.leave.name),
       ]),
+      script('key-manual', 1560, 480, whenKeyPressed('a'), [
+        broadcast(MESSAGES.manual.id, MESSAGES.manual.name),
+      ]),
       script('key-panel', 1320, 480, whenKeyPressed('tab'), [
         broadcast(MESSAGES.panel.id, MESSAGES.panel.name),
       ]),
@@ -304,7 +377,26 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             ROWS: readVariable(VARIABLES.rows, 'rows'),
           },
         },
+        // Handed over as part of starting, not as a mode to switch into. The
+        // extension measures every frame anyway to decide whether a press
+        // would have been accepted; leaving the press to the person who is
+        // also holding the board asks them to make a judgement that has
+        // already been made.
+        extensionStep(CAMERA_CALIBRATION, 'startAutomaticCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
         setVariable(VARIABLES.status, 'status', CAPTURE_STATUS),
+      ]),
+      // Taking it back is one-way: the strip then offers the manual buttons,
+      // and handing it over again is what restarting a session does. A control
+      // to flip back and forth would be a fifth button on the strip for a
+      // choice nobody makes twice in one session.
+      onBroadcast('do-manual', 1560, 640, MESSAGES.manual, [
+        extensionStep(CAMERA_CALIBRATION, 'stopAutomaticCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        setVariable(VARIABLES.status, 'status', MANUAL_STATUS),
+        setVariable(VARIABLES.advice, 'advice', ''),
       ]),
       onBroadcast('do-sample', 360, 640, MESSAGES.sample, [
         extensionStep(CAMERA_CALIBRATION, 'addCameraCalibrationSample', {
@@ -389,6 +481,32 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               { CAMERA_ID: CAPTURE_CAMERA },
             ),
           ),
+          // What the operator should do next, while the shutter watches. Kept
+          // apart from `code` on purpose: a frame the shutter declines is the
+          // ordinary case, so these would be errors several times a second,
+          // and an error that is always showing says nothing.
+          setVariableFrom(
+            VARIABLES.guidance,
+            'guidance',
+            extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationGuidance', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ),
+          ...chain(
+            () => readVariable(VARIABLES.guidance, 'guidance'),
+            ADVICE,
+            VARIABLES.advice,
+            'advice',
+          ),
+          setVariableFrom(
+            VARIABLES.automatic,
+            'automatic',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'automaticCameraCalibration',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
           // One token the whole interface is decided from. Which buttons make
           // sense in which state is a table, and a table in one place stays
           // right; spread across six scripts it drifts, and a button offered
@@ -403,13 +521,25 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           ifElse(
             equals(readVariable(VARIABLES.state, 'state'), 'ready'),
             [
-              // Eight is the fewest a solve accepts, so below it the solve
-              // button is not offered at all: pressing it would earn a refusal
-              // for doing the obvious thing.
               ifElse(
-                greaterThan(readVariable(VARIABLES.samples, 'samples'), '7'),
-                [setVariable(VARIABLES.ui, 'ui', 'ready+')],
-                [setVariable(VARIABLES.ui, 'ui', 'ready')],
+                equals(readVariable(VARIABLES.automatic, 'automatic'), 'true'),
+                // Collecting by itself. Sampling and solving are not offered,
+                // because pressing them would be asking for something already
+                // happening; what is offered is a way to take it back.
+                [setVariable(VARIABLES.ui, 'ui', 'auto')],
+                // Eight is the fewest a solve accepts, so below it the solve
+                // button is not offered at all: pressing it would earn a
+                // refusal for doing the obvious thing.
+                [
+                  ifElse(
+                    greaterThan(
+                      readVariable(VARIABLES.samples, 'samples'),
+                      '7',
+                    ),
+                    [setVariable(VARIABLES.ui, 'ui', 'ready+')],
+                    [setVariable(VARIABLES.ui, 'ui', 'ready')],
+                  ),
+                ],
               ),
             ],
             [
@@ -461,6 +591,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           [VARIABLES.status]: ['status', opening],
           ...(embedExtensions
             ? {
+                [VARIABLES.guidance]: ['guidance', ''],
+                [VARIABLES.advice]: ['advice', ''],
+                [VARIABLES.automatic]: ['automatic', 'false'],
                 [VARIABLES.samples]: ['samples', 0],
                 [VARIABLES.quality]: ['quality', 0],
                 [VARIABLES.reprojection]: ['error px', 0],

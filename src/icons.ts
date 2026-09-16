@@ -114,6 +114,23 @@ export function leaveIcon(): string {
   );
 }
 
+/**
+ * Take the shutter back from the extension.
+ *
+ * An eye with a line through it: what the extension is doing is watching the
+ * camera and deciding when a view is worth keeping, and this stops the
+ * watching. Not a hand, and not a shutter -- a shutter is what both modes end
+ * up pressing, so it would name the thing they have in common rather than the
+ * thing that differs.
+ */
+export function manualIcon(): string {
+  return svg(
+    `<path d="M 14 32 q 18 -14 36 0 q -18 14 -36 0 z" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>` +
+      `<circle cx="32" cy="32" r="5" fill="none" stroke="${INK}" stroke-width="2.5"/>` +
+      `<line x1="16" y1="48" x2="48" y2="16" stroke="${ACCENT}" stroke-width="3.5" stroke-linecap="round"/>`,
+  );
+}
+
 /** Working. Not a button: what stands in for the buttons while they are hidden. */
 export function workingIcon(): string {
   return svg(
