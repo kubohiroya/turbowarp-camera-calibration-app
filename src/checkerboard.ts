@@ -71,6 +71,35 @@ export const BOARDS: readonly BoardSpec[] = [
  * because scaling one axis alone would turn the squares into rectangles and the
  * calibration would solve for a lens that is not there.
  */
+/**
+ * The sheet `patternFile` writes: A4, landscape, in millimetres.
+ *
+ * Here rather than in the writer because the printed square size is derived
+ * from it, and a page size that moved without the derivation moving with it
+ * would hand the calibration a measurement of a sheet nobody printed.
+ */
+export const PRINT_WIDTH_MM = 297;
+export const PRINT_HEIGHT_MM = 210;
+
+/**
+ * How large one square comes out on that sheet, printed at full size.
+ *
+ * The SVG scales uniformly and letterboxes the rest, so the scale is whichever
+ * axis runs out first -- the same on both, which is what keeps the squares
+ * square.
+ *
+ * Nominal, not measured. It is what the sheet should be if the printer was
+ * told not to resize; a ruler laid on the paper is the only thing that knows
+ * whether it was. Intrinsic calibration does not care either way -- the fit is
+ * unchanged by scale -- but a board pose is metric, and its distance is wrong
+ * by exactly however much this is wrong.
+ */
+export function printedCellMillimetres(board: BoardSpec): number {
+  const drawn = layout(board);
+  const scale = Math.min(PRINT_WIDTH_MM / 1000, PRINT_HEIGHT_MM / 750);
+  return drawn.cell * scale;
+}
+
 export function layout(
   board: BoardSpec,
   width = 1000,

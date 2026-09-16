@@ -5,9 +5,12 @@ import { backdrops, buttons, createProject, md5 } from '../scripts/project.ts';
 import {
   BOARDS,
   MARKER_RATIO,
+  PRINT_HEIGHT_MM,
+  PRINT_WIDTH_MM,
   boardName,
   layout,
   patternSvg,
+  printedCellMillimetres,
 } from '../src/checkerboard.ts';
 import { DICT_4X4_50, MARKER_CELLS, markerCells } from '../src/aruco.ts';
 import { featureFlags } from '../config/feature-flags.ts';
@@ -266,6 +269,70 @@ describe('the calibration path', () => {
       for (const name of Object.keys(block.inputs)) {
         expect(declared, `${block.opcode}.${name}`).toContain(name);
       }
+    }
+  });
+
+  it('declares the size the sheet actually prints at', () => {
+    // Intrinsic calibration is unaffected -- scale drops out of the fit -- but
+    // a board pose is metric, and its distance is wrong by exactly however
+    // much this figure is wrong. The three boards print at different sizes, so
+    // one number written down would be wrong for two of them.
+    const start = scriptOrder(blocks, 'do-start').find(
+      (block) =>
+        block.opcode === 'kubohiroyacameracalibration_startCameraCalibration',
+    );
+    const named = (input: string) =>
+      (
+        (start?.inputs?.[input] as [number, string] | undefined)?.[1] ?? ''
+      ).toString();
+    // Read from variables rather than written into the block, so choosing a
+    // different board carries its size along.
+    for (const input of ['SQUARE_METERS', 'MARKER_METERS']) {
+      expect(start?.inputs, input).toHaveProperty(input);
+    }
+    expect(named('SQUARE_METERS')).not.toMatch(/^\d/u);
+
+    const board = BOARDS[0]!;
+    const drawn = layout(board);
+    const scale = Math.min(PRINT_WIDTH_MM / 1000, PRINT_HEIGHT_MM / 750);
+    expect(printedCellMillimetres(board)).toBeCloseTo(drawn.cell * scale, 6);
+
+    const stageVariables = (
+      enabled.targets[0] as unknown as {
+        variables: Record<string, [string, string]>;
+      }
+    ).variables;
+    const declared = Object.values(stageVariables);
+    const square = declared.find(([name]) => name === 'square')?.[1];
+    const marker = declared.find(([name]) => name === 'marker')?.[1];
+    expect(Number(square)).toBeCloseTo(printedCellMillimetres(board) / 1000, 4);
+    expect(Number(marker)).toBeCloseTo(Number(square) * MARKER_RATIO, 4);
+  });
+
+  it('carries each board its own printed size', () => {
+    // Choosing a board and leaving the previous board's size behind would have
+    // the session measuring a sheet nobody is holding.
+    const sizes = BOARDS.map((board) => printedCellMillimetres(board));
+    expect(new Set(sizes).size).toBe(BOARDS.length);
+    for (const [index, board] of BOARDS.entries()) {
+      const set = scriptOrder(blocks, `board-${index}`).filter(
+        (block) => block.opcode === 'data_setvariableto',
+      );
+      const written = new Map(
+        set.map((block) => [
+          (block.fields.VARIABLE as [string, string])[0],
+          (block.inputs.VALUE as [number, [number, string]])[1][1],
+        ]),
+      );
+      expect(Number(written.get('square')), `board-${index}`).toBeCloseTo(
+        (sizes[index] ?? 0) / 1000,
+        4,
+      );
+      expect(Number(written.get('marker')), `board-${index}`).toBeCloseTo(
+        Number(written.get('square')) * MARKER_RATIO,
+        4,
+      );
+      expect(Number(written.get('columns'))).toBe(board.columns);
     }
   });
 

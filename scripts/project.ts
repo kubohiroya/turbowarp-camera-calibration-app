@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 import { createHash } from 'node:crypto';
-import { BOARDS } from '../src/checkerboard.ts';
+import {
+  BOARDS,
+  MARKER_RATIO,
+  printedCellMillimetres,
+} from '../src/checkerboard.ts';
 import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
   both,
@@ -177,6 +181,8 @@ const VARIABLES = {
   board: 'board',
   columns: 'columns',
   rows: 'rows',
+  square: 'square',
+  marker: 'marker',
   status: 'status',
   guidance: 'guidance',
   advice: 'advice',
@@ -253,6 +259,28 @@ function chain(
   ];
 }
 
+/**
+ * The square and marker sizes to declare for a board, in metres.
+ *
+ * Taken from the sheet the app writes rather than written down, so choosing a
+ * different board cannot leave the calibration measuring the previous one: the
+ * three boards print at 23.2, 26.0 and 30.0 mm, and a single figure covering
+ * all three would be wrong for two of them.
+ *
+ * Intrinsic calibration is unaffected by any of this -- scale drops out of the
+ * fit -- but a board pose is metric and takes its distance from here.
+ */
+function declaredSizes(board: (typeof BOARDS)[number]): {
+  square: string;
+  marker: string;
+} {
+  const millimetres = printedCellMillimetres(board);
+  return {
+    square: (millimetres / 1000).toFixed(4),
+    marker: ((millimetres * MARKER_RATIO) / 1000).toFixed(4),
+  };
+}
+
 /** The strip is closed unless the operator opened it. */
 function equalsPanel(state: 'open' | 'closed'): Reporter {
   return equals(readVariable(VARIABLES.panel, 'panel'), state);
@@ -281,9 +309,20 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       setVariable(VARIABLES.board, 'board', `${board.columns}x${board.rows}`),
       setVariable(VARIABLES.columns, 'columns', String(board.columns)),
       setVariable(VARIABLES.rows, 'rows', String(board.rows)),
-      // Only the calibration build has a state to be in, or a strip to open.
+      // Only the calibration build has a state to be in, a strip to open, or a
+      // board whose printed size it has to declare.
       ...(embedExtensions
         ? [
+            setVariable(
+              VARIABLES.square,
+              'square',
+              declaredSizes(board).square,
+            ),
+            setVariable(
+              VARIABLES.marker,
+              'marker',
+              declaredSizes(board).marker,
+            ),
             setVariable(VARIABLES.ui, 'ui', 'idle'),
             setVariable(VARIABLES.state, 'state', 'idle'),
             // Closed to begin with. The strip sits over the camera picture,
@@ -322,6 +361,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             ),
             setVariable(VARIABLES.columns, 'columns', String(choice.columns)),
             setVariable(VARIABLES.rows, 'rows', String(choice.rows)),
+            // The three boards print at different square sizes, so these
+            // travel with the choice. Left behind, a session would be
+            // measuring the board the operator stopped using.
+            setVariable(
+              VARIABLES.square,
+              'square',
+              declaredSizes(choice).square,
+            ),
+            setVariable(
+              VARIABLES.marker,
+              'marker',
+              declaredSizes(choice).marker,
+            ),
             setVariable(VARIABLES.status, 'status', IDLE_STATUS),
           ],
         ),
@@ -368,13 +420,13 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           ...extensionStep(CAMERA_CALIBRATION, 'startCameraCalibration', {
             CAMERA_ID: CAPTURE_CAMERA,
             CALIBRATION_ID: 'session-1',
-            SQUARE_METERS: '0.025',
-            MARKER_METERS: '0.018',
             MAX_ERROR_PX: '1.5',
           }),
           reporters: {
             COLUMNS: readVariable(VARIABLES.columns, 'columns'),
             ROWS: readVariable(VARIABLES.rows, 'rows'),
+            SQUARE_METERS: readVariable(VARIABLES.square, 'square'),
+            MARKER_METERS: readVariable(VARIABLES.marker, 'marker'),
           },
         },
         // Handed over as part of starting, not as a mode to switch into. The
@@ -591,6 +643,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           [VARIABLES.status]: ['status', opening],
           ...(embedExtensions
             ? {
+                [VARIABLES.square]: ['square', declaredSizes(board).square],
+                [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
                 [VARIABLES.advice]: ['advice', ''],
                 [VARIABLES.automatic]: ['automatic', 'false'],
