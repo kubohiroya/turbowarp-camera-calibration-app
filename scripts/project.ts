@@ -25,6 +25,7 @@ import {
   setVariableFrom,
   showVariable,
   switchBackdrop,
+  waitSeconds,
   whenFlagClicked,
   whenKeyPressed,
   type BlockMap,
@@ -668,6 +669,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
             ],
           ),
+          // One pass per frame. Everything above mirrors extension reporters
+          // into variables so the monitors can show them, and a monitor is
+          // read by a person: thirty times a second is already more than that
+          // needs. Without this the sequencer re-enters the loop until the
+          // frame's work budget is gone -- thirty thousand passes -- and the
+          // budget it spends there is the budget the camera preview and the
+          // frame grab do not get.
+          waitSeconds(0),
         ]),
       ]),
     );

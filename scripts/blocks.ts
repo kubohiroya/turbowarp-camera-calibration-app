@@ -108,6 +108,23 @@ export function switchBackdrop(name: string): Step {
 export const show: Step = { opcode: 'looks_show' };
 export const hide: Step = { opcode: 'looks_hide' };
 
+/**
+ * Sleeps until the next frame.
+ *
+ * The block a polling loop cannot do without. A `forever` whose body never
+ * asks to wait is re-entered by the sequencer until the frame's work budget is
+ * gone -- measured at thirty thousand passes per frame for this project's watch
+ * loop, which is thirty thousand times more often than a monitor can be read.
+ * The budget spent on that is budget the camera preview and the frame grab do
+ * not get.
+ */
+export function waitSeconds(seconds: number): Step {
+  return {
+    opcode: 'control_wait',
+    inputs: { DURATION: [1, [5, String(seconds)]] },
+  };
+}
+
 export function forever(body: readonly Step[]): Step {
   return { opcode: 'control_forever', substack: body };
 }
