@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { backdrops, createProject, md5 } from './project.ts';
+import { backdrops, buttons, createProject, md5 } from './project.ts';
 import {
   EMBEDS_EXTENSIONS,
   EXTENSION_PINS,
@@ -13,7 +13,11 @@ const config = JSON.parse(
 const extensions = EMBEDS_EXTENSIONS
   ? EXTENSION_PINS.map(resolveExtension)
   : [];
-const assets = backdrops().map((costume) => ({
+const assets = [
+  ...backdrops(),
+  // Button costumes only exist in the build that carries the calibration path.
+  ...(EMBEDS_EXTENSIONS ? buttons().map((button) => button.costume) : []),
+].map((costume) => ({
   ...costume,
   file: `${md5(costume.contents)}.svg`,
 }));

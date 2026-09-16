@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { backdrops, createProject, md5 } from '../scripts/project.ts';
+import { backdrops, buttons, createProject, md5 } from '../scripts/project.ts';
 import {
   BOARDS,
   MARKER_RATIO,
@@ -12,6 +12,18 @@ import {
 import { DICT_4X4_50, MARKER_CELLS, markerCells } from '../src/aruco.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import type { ScratchBlock } from '../scripts/blocks.ts';
+
+/**
+ * What these tests read off the stage target.
+ *
+ * `targets` holds the stage and the button sprites, which are different
+ * shapes, so indexing it gives a union rather than the stage. The tests only
+ * ever ask the stage for its blocks and its costumes.
+ */
+type StageTarget = {
+  blocks: unknown;
+  costumes: Array<{ name: string; assetId: string; md5ext: string }>;
+};
 import {
   EXTENSION_PINS,
   integrity,
@@ -119,7 +131,7 @@ describe('the ChArUco board', () => {
 
 describe('the project', () => {
   const project = createProject('Test', { embedExtensions: true });
-  const stage = project.targets[0];
+  const stage = project.targets[0] as StageTarget;
   const blocks = stage.blocks as Record<string, ScratchBlock>;
 
   it('links every script in both directions', () => {
@@ -260,7 +272,7 @@ describe('the calibration path', () => {
   it('takes the camera and opens a session in one step', () => {
     // A camera held without a session is a camera taken from whoever else
     // wanted it, for nothing, with no sign to the operator that it happened.
-    const order = scriptOrder(blocks, 'capture').map((block) => block.opcode);
+    const order = scriptOrder(blocks, 'do-start').map((block) => block.opcode);
     expect(
       order.indexOf('kubohiroyacamerasource_startSharedCamera'),
     ).toBeGreaterThan(-1);
@@ -276,7 +288,7 @@ describe('the calibration path', () => {
     // camera for every other consumer, with nothing on screen to say so. The
     // extensions release on the red stop button; this is the path that leaves
     // a session while the project keeps running, and it had to be said here.
-    const order = scriptOrder(blocks, 'leave').map((block) => block.opcode);
+    const order = scriptOrder(blocks, 'do-leave').map((block) => block.opcode);
     expect(order).toContain(
       'kubohiroyacameracalibration_cancelCameraCalibration',
     );
@@ -285,7 +297,7 @@ describe('the calibration path', () => {
   });
 
   it('asks for the board the operator selected, not a fixed one', () => {
-    const start = scriptOrder(blocks, 'capture').find(
+    const start = scriptOrder(blocks, 'do-start').find(
       (block) =>
         block.opcode === 'kubohiroyacameracalibration_startCameraCalibration',
     );
@@ -343,3 +355,169 @@ function scriptOrder(
   }
   return order;
 }
+
+describe('the capture buttons', () => {
+  const project = createProject('Test', { embedExtensions: true });
+  const stage = project.targets[0] as StageTarget;
+  const sprites = project.targets.filter((target) => !target.isStage);
+  const strip = buttons();
+
+  /** The states the stage's watch loop can put in `ui`. */
+  const STATES = [
+    'idle',
+    'ready',
+    'ready+',
+    'solved',
+    'error',
+    'busy',
+  ] as const;
+
+  /**
+   * Reads a button's visibility condition the way the VM would.
+   *
+   * The conditions are block trees, so this walks them rather than duplicating
+   * the rule -- a second copy of the table is the thing this test exists to
+   * prevent.
+   */
+  function visible(condition: unknown, ui: string, panel: string): boolean {
+    const node = condition as {
+      opcode: string;
+      inputs?: Record<string, unknown>;
+      booleans?: Record<string, unknown>;
+      reporters?: Record<string, unknown>;
+      fields?: Record<string, unknown>;
+    };
+    switch (node.opcode) {
+      case 'operator_and':
+        return (
+          visible(node.booleans?.OPERAND1, ui, panel) &&
+          visible(node.booleans?.OPERAND2, ui, panel)
+        );
+      case 'operator_or':
+        return (
+          visible(node.booleans?.OPERAND1, ui, panel) ||
+          visible(node.booleans?.OPERAND2, ui, panel)
+        );
+      case 'operator_not':
+        return !visible(node.booleans?.OPERAND, ui, panel);
+      case 'operator_equals': {
+        const named = node.reporters?.OPERAND1 as
+          { fields?: { VARIABLE?: [string, string] } } | undefined;
+        const which = named?.fields?.VARIABLE?.[1];
+        const literal = (
+          node.inputs?.OPERAND2 as [number, [number, string]]
+        )[1][1];
+        return (which === 'ui' ? ui : panel) === literal;
+      }
+      default:
+        throw new Error(`unhandled condition ${node.opcode}`);
+    }
+  }
+
+  function shownIn(ui: string, panel = 'open'): string[] {
+    return strip
+      .filter(
+        (button) =>
+          !button.visibleWhen || visible(button.visibleWhen, ui, panel),
+      )
+      .map((button) => button.name);
+  }
+
+  it('offers solve only once a solve would be accepted', () => {
+    // Eight samples is the fewest the extension solves from. Offering it below
+    // that earns the operator a refusal for doing the obvious thing, and says
+    // nothing about how many more are needed.
+    expect(shownIn('ready')).not.toContain('btn-solve');
+    expect(shownIn('ready+')).toContain('btn-solve');
+  });
+
+  it('offers registering only once there is something to register', () => {
+    for (const ui of STATES) {
+      expect(shownIn(ui).includes('btn-register')).toBe(ui === 'solved');
+    }
+  });
+
+  it('never offers a sample outside a live session', () => {
+    for (const ui of STATES) {
+      expect(shownIn(ui).includes('btn-sample')).toBe(
+        ui === 'ready' || ui === 'ready+',
+      );
+    }
+  });
+
+  it('shows start or restart, never both', () => {
+    for (const ui of STATES) {
+      const shown = shownIn(ui);
+      expect(shown.includes('btn-start') && shown.includes('btn-restart')).toBe(
+        false,
+      );
+    }
+  });
+
+  it('keeps the strip to four actions at once', () => {
+    // The whole reason for the state table. Six action buttons exist; the
+    // operator is holding a board and looking at a camera picture, not reading
+    // a palette. Four is the widest state, `ready+`, where restarting,
+    // sampling, solving and leaving are all things to do. The handle is not
+    // counted: it is how the strip opens, not something to choose.
+    for (const ui of STATES) {
+      const actions = shownIn(ui).filter(
+        (name) => name !== 'btn-handle' && name !== 'indicator-working',
+      );
+      expect(actions.length, ui).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('shows nothing but the working mark while an operation runs', () => {
+    // Also stops a second press landing on an operation already in flight.
+    expect(shownIn('busy')).toEqual(['indicator-working', 'btn-handle']);
+  });
+
+  it('leaves only the handle when the strip is closed', () => {
+    for (const ui of STATES) {
+      const shown = shownIn(ui, 'closed');
+      expect(
+        shown.filter(
+          (name) => name !== 'btn-handle' && name !== 'indicator-working',
+        ),
+      ).toEqual([]);
+    }
+  });
+
+  it('sends every click somewhere the stage is listening', () => {
+    // A button whose message nobody receives looks identical to one that works.
+    const received = new Set(
+      Object.values(stage.blocks as Record<string, ScratchBlock>)
+        .filter((block) => block.opcode === 'event_whenbroadcastreceived')
+        .map((block) => (block.fields.BROADCAST_OPTION as [string, string])[1]),
+    );
+    for (const button of strip) {
+      if (!button.broadcast) continue;
+      expect(received, button.name).toContain(button.broadcast.id);
+    }
+  });
+
+  it('gives each button its own sprite and costume', () => {
+    expect(sprites.map((sprite) => sprite.name)).toEqual(
+      strip.map((button) => button.name),
+    );
+    for (const sprite of sprites) {
+      expect(sprite.costumes).toHaveLength(1);
+      expect(sprite.visible).toBe(false);
+    }
+  });
+
+  it('draws no complete grid on any button', () => {
+    // A drawing of the target is a thing the detector can find, and the one
+    // arrangement where that matters -- a camera pointed at the screen running
+    // this -- is also the one where the mistake is invisible: the solve
+    // succeeds, against the wrong board.
+    for (const button of strip) {
+      const darkSquares = (
+        button.costume.contents.match(/<rect x="\d+" y="\d+" width="11"/gu) ??
+        []
+      ).length;
+      expect(darkSquares, button.name).toBeLessThan(4);
+    }
+  });
+});
