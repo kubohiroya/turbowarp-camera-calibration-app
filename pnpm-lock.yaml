@@ -19,8 +19,8 @@ importers:
         specifier: 0.12.0
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.7.0
-        version: 0.7.0
+        specifier: 0.8.0
+        version: 0.8.0
       '@kubohiroya/turbowarp-camera-source':
         specifier: 0.9.0
         version: 0.9.0
@@ -128,8 +128,8 @@ packages:
     resolution: {integrity: sha512-sYt1KBEEm00biA0kjhO+1OkpSO9qb6UI++bXZvtYDQ+2sLMKM1c7vGFD8cEQsLy51cx0vSM8PUufiqb2dIwnQw==}
     engines: {node: '>=22'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.7.0':
-    resolution: {integrity: sha512-WaoOvsx5IxWDRb82Krbjb2ZTqv/Or730XtGfq5qIbDNBj2CcKNYuGYNI7uajqb0WEtcH1s/Nkht25QtRfSX4hw==}
+  '@kubohiroya/turbowarp-camera-calibration@0.8.0':
+    resolution: {integrity: sha512-S01esf58PSSUEQ/XP8ttmiNxJ099Bgw3xT1yg5cxZxz36BuB/2Pljt2P5PAGOjlpUktyPU8gTTMgEHbQK03gYQ==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-camera-source@0.8.0':
@@ -1044,7 +1044,7 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.2.0': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.7.0':
+  '@kubohiroya/turbowarp-camera-calibration@0.8.0':
     dependencies:
       '@kubohiroya/turbowarp-camera-source': 0.8.0
       comlink: 4.4.2
