@@ -365,6 +365,7 @@ describe('the capture buttons', () => {
   /** The states the stage's watch loop can put in `ui`. */
   const STATES = [
     'idle',
+    'auto',
     'ready',
     'ready+',
     'solved',
@@ -442,6 +443,24 @@ describe('the capture buttons', () => {
       expect(shownIn(ui).includes('btn-sample')).toBe(
         ui === 'ready' || ui === 'ready+',
       );
+    }
+  });
+
+  it('offers nothing to press for what is already happening', () => {
+    // While the shutter watches, sampling and solving are not choices: one is
+    // being done several times a second, and the other follows on its own.
+    // What is left is a way to take the shutter back.
+    expect(shownIn('auto')).toEqual([
+      'btn-restart',
+      'btn-manual',
+      'btn-leave',
+      'btn-handle',
+    ]);
+  });
+
+  it('offers the take-back only while the shutter has it', () => {
+    for (const ui of STATES) {
+      expect(shownIn(ui).includes('btn-manual')).toBe(ui === 'auto');
     }
   });
 
