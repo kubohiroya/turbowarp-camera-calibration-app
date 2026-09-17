@@ -387,6 +387,11 @@ export function whenFlagClicked(): Step {
   return { opcode: 'event_whenflagclicked' };
 }
 
+/** Runs when the stage itself is clicked -- anywhere a sprite is not. */
+export function whenStageClicked(): Step {
+  return { opcode: 'event_whenstageclicked' };
+}
+
 export function whenKeyPressed(key: string): Step {
   return {
     opcode: 'event_whenkeypressed',

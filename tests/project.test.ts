@@ -1,7 +1,12 @@
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { backdrops, createProject, md5 } from '../scripts/project.ts';
+import {
+  backdrops,
+  createProject,
+  md5,
+  titleButtons,
+} from '../scripts/project.ts';
 import {
   BOARDS,
   MARKER_RATIO,
@@ -73,6 +78,38 @@ describe('the project', () => {
     expect(hasGrid(title?.contents ?? '')).toBe(false);
     const sprites = calibrating.targets.filter((target) => !target.isStage);
     expect(sprites.length).toBeGreaterThan(0);
+  });
+
+  it('gives every costume a size Scratch can read', () => {
+    // A percentage is a size only relative to a container, and a costume has
+    // none. Scratch falls back to the viewBox, centres the stage on it, and
+    // shows whatever corner of the drawing lands there -- which is how the
+    // board went on screen as its own top-left quarter.
+    const calibrating = createProject('Test', { embedExtensions: true });
+    const svgs = [
+      ...backdrops(true).map((entry) => [entry.name, entry.contents] as const),
+      ...titleButtons().map(
+        (button) => [button.name, button.costume.contents] as const,
+      ),
+      ...guideCostumes().map((entry) => [entry.name, entry.contents] as const),
+    ];
+    expect(svgs.length).toBeGreaterThan(5);
+    for (const [name, svg] of svgs) {
+      const open = svg.match(/<svg\b[^>]*>/u)?.[0] ?? '';
+      const width = open.match(/\bwidth="([^"]+)"/u)?.[1] ?? '';
+      const height = open.match(/\bheight="([^"]+)"/u)?.[1] ?? '';
+      expect(width, `${name} width`).toMatch(/^\d+(\.\d+)?$/u);
+      expect(height, `${name} height`).toMatch(/^\d+(\.\d+)?$/u);
+    }
+    // And the boards fill the stage rather than overflow it.
+    for (const board of BOARDS) {
+      const svg =
+        backdrops(true).find(
+          (entry) => entry.name === `board-${board.columns}x${board.rows}`,
+        )?.contents ?? '';
+      expect(svg).toContain('width="480" height="360"');
+    }
+    expect(calibrating.targets.length).toBeGreaterThan(1);
   });
 
   it('names each costume by the bytes it actually holds', () => {
@@ -437,6 +474,40 @@ describe('the calibration path', () => {
     const begin = scriptOrder(blocks, 'do-begin').map((block) => block.opcode);
     expect(begin[0]).toBe('event_whenbroadcastreceived');
     expect(begin).toContain('event_broadcast');
+  });
+
+  it('goes back to the opening screen when the board is clicked', () => {
+    // Full screen hides the green flag, and the board hides the buttons, so
+    // the board itself is the way back. Only while a board is up: a click
+    // during a calibration must not end it.
+    const click = scriptOrder(blocks, 'stage-click');
+    expect(click[0]?.opcode).toBe('event_whenstageclicked');
+    const guard = click[1];
+    expect(guard?.opcode).toBe('control_if');
+    // Walk the body of the `if` from its first block, which scriptOrder
+    // cannot do: it starts from a script's hat by name.
+    const inside: string[] = [];
+    let at: string | null =
+      (guard?.inputs.SUBSTACK as [number, string] | undefined)?.[1] ?? null;
+    while (at) {
+      const block: ScratchBlock | undefined = blocks[at];
+      if (!block) break;
+      inside.push(block.opcode);
+      at = block.next;
+    }
+    expect(inside).toContain('looks_switchbackdropto');
+  });
+
+  it('puts nothing on top of a board being shown', () => {
+    // The monitors sit in the corner and the status line runs across the
+    // stage -- over the quiet zone and the first markers, which is what the
+    // camera on the other machine has to read.
+    for (const [index] of BOARDS.entries()) {
+      const hidden = scriptOrder(blocks, `do-show-${index}`)
+        .filter((block) => block.opcode === 'data_hidevariable')
+        .map((block) => (block.fields.VARIABLE as [string, string])[0]);
+      expect(hidden).toEqual(['board', 'status']);
+    }
   });
 
   it('can be the machine that shows the board, as well as the one that looks', () => {
