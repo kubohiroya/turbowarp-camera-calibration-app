@@ -13,6 +13,7 @@ import {
   TITLE_BUTTON_SIZE,
   boardButton,
   startButton,
+  backButton,
 } from '../src/title-buttons.ts';
 
 const own = createRequire(import.meta.url)('../package.json') as {
@@ -76,6 +77,7 @@ import {
   type Step,
 } from './blocks.ts';
 import {
+  backButtonTarget,
   guideTarget,
   onBroadcast,
   titleButtonTarget,
@@ -189,6 +191,7 @@ const MESSAGES = {
   adopt: { id: 'msg-adopt', name: 'adopt' },
   repaint: { id: 'msg-repaint', name: 'repaint' },
   flash: { id: 'msg-flash', name: 'flash' },
+  back: { id: 'msg-back', name: 'back' },
   beginBoard: BOARDS.map((board) => ({
     id: `msg-begin-${board.columns}x${board.rows}`,
     name: `begin ${board.columns}x${board.rows}`,
@@ -222,7 +225,7 @@ const VARIABLES = {
   marker: 'marker',
   status: 'status',
   guidance: 'guidance',
-  advice: 'advice',
+  adopted: 'adopted',
   automatic: 'automatic',
   samples: 'samples',
   quality: 'quality',
@@ -243,23 +246,16 @@ const VARIABLES = {
  */
 const PROFILE_LIST = { id: 'list-profile', name: 'profile' } as const;
 
-/** Shown once the profile exists and has been handed to Camera Source. */
-const EXPORT_STATUS = [
-  '校正できました。camera-source に登録済みです。',
-  'ステージ左の profile リストを右クリック → 書き出す で、ファイルに保存できます。',
-  '読み込むときは、同じリストに 読み込む → i キー。',
-].join('   /   ');
+/**
+ * Shown once the profile exists and has been handed to Camera Source.
+ *
+ * One sentence, because it is the only thing left to do. Registration has
+ * already happened and is not the operator's business; the file is.
+ */
+const EXPORT_STATUS =
+  '校正できました。profile リストを右クリック →「書き出し」で保存できます';
 
-const IDLE_STATUS = [
-  '緑の旗で始まります。停止ボタンでカメラを返します。',
-  '模様はこのページで表示・印刷します。板はどれでも構いません — かざした板を見つけます。',
-].join('   ');
-
-const CAPTURE_STATUS = [
-  'ボードを持って、画面の絵のとおりに傾けてください。',
-  '撮る・解く・登録まで自動です。押すものはありません。',
-  'やめるときは停止ボタン、やり直すときは緑の旗。',
-].join('   /   ');
+const IDLE_STATUS = '緑の旗で最初の画面に戻ります';
 
 /**
  * The guidance codes, as something to do.
@@ -282,21 +278,18 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
   [
     'wrong-board',
     join(
-      join('別の板のようです。選択中は ', selectedBoard()),
-      ' です。緑の旗で最初の画面に戻り、持っている板を選んでください',
+      join('別の板のようです（選択中: ', selectedBoard()),
+      '）。緑の旗で戻り、持っている板を選んでください',
     ),
   ],
-  ['hold-steadier', 'ぶれています。少し止めるか、近づけてください'],
-  ['move-or-tilt', '同じ見え方です。位置を変えるか、傾け方を変えてください'],
+  ['hold-steadier', 'ぶれています。少し止めてください'],
+  ['move-or-tilt', '位置か傾きを変えてください'],
   // The one instruction people get wrong, so it says what does not work as
   // well as what does. Sliding the board keeps every view the same shape, and
   // a set of same-shaped views cannot separate focal length from distance.
   // Names the direction the extension asked for, so the instruction is one
   // the operator can carry out rather than interpret. The sound says the same
   // thing at the same moment, for the times they are not looking.
-  // Names the direction the extension asked for, so the instruction is one
-  // the operator can carry out rather than interpret. The sound says the same
-  // thing at the same moment, for the times they are not looking at all.
   [
     'tilt-more',
     join(
@@ -304,17 +297,16 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
       join(readVariable('turn-words', 'turn words'), ' 傾けてください'),
     ),
   ],
-  ['keep-going', 'そのまま、角度と距離を変えながら続けてください'],
+  ['keep-going', '角度と距離を変えながら続けてください'],
   // Not "keep going": more of the same is the thing that is not working.
   [
     'vary-more',
-    '見え方が似すぎています。カメラに近づける・遠ざける、大きく傾ける、画面の端に寄せる、を試してください',
+    '近づける・遠ざける・大きく傾ける・端に寄せる、を試してください',
   ],
   ['solving', '計算しています'],
-  [
-    'complete',
-    '完了しました。camera-source に登録し、profile リストに書き出しました',
-  ],
+  // The same sentence the registration leaves behind, so the line does not
+  // change under the operator's eyes a moment after it appears.
+  ['complete', EXPORT_STATUS],
 ];
 
 const DISABLED_STATUS =
@@ -411,6 +403,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             setVariable(VARIABLES.announced, 'announced', ''),
             setVariable(VARIABLES.cued, 'cued', ''),
             setVariable(VARIABLES.sounded, 'sounded', '0'),
+            setVariable(VARIABLES.adopted, 'adopted', ''),
             setVariable(VARIABLES.ui, 'ui', 'idle'),
             setVariable(VARIABLES.state, 'state', 'idle'),
             // Closed to begin with. The strip sits over the camera picture,
@@ -476,7 +469,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         extensionStep(CAMERA_CALIBRATION, 'startAutomaticCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
-        setVariable(VARIABLES.status, 'status', CAPTURE_STATUS),
       ]),
       // Taking it back is one-way: the strip then offers the manual buttons,
       // and handing it over again is what restarting a session does. A control
@@ -498,11 +490,26 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           }),
         ),
         setVariable(VARIABLES.status, 'status', EXPORT_STATUS),
+        // Nothing is being looked at any more. A live picture after the finish
+        // invites the operator to keep holding the board up, and a camera kept
+        // running keeps its light on for nothing.
+        extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
       ]),
       // Taking one back. The list is filled by the operator through its own
       // context menu -- the only door in a Scratch project that opens onto a
       // file -- and this reads whatever came through it.
       onBroadcast('do-adopt', 1800, 640, MESSAGES.adopt, [
+        // A verdict is about the camera as it is now, and a stopped camera
+        // reports nothing to compare against -- every profile would read as
+        // undetermined. No preview: nothing is being captured.
+        extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
         {
           ...extensionStep(CAMERA_CALIBRATION, 'importCameraCalibration', {
             CAMERA_ID: CAPTURE_CAMERA,
@@ -517,6 +524,31 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
+        // The fit is shown for a profile brought in, and only for one. A
+        // profile this session solved fits by construction -- the extension
+        // ends a session whose camera settings changed in an error instead.
+        setVariable(VARIABLES.adopted, 'adopted', 'true'),
+      ]),
+      // Back to the opening screen once a session is over, solved or failed.
+      //
+      // The green flag did this, and full screen hides the green flag. The
+      // button is offered only when the session has ended, so it is never a
+      // second way to stop one: the stop sign is that.
+      onBroadcast('do-back', 1800, 960, MESSAGES.back, [
+        extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        extensionStep(CAMERA_CALIBRATION, 'cleanupCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        setVariable(VARIABLES.adopted, 'adopted', ''),
+        setVariable(VARIABLES.screen, 'screen', 'title'),
+        switchBackdrop(titleBackdropName),
+        setVariable(VARIABLES.status, 'status', IDLE_STATUS),
+        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
       ]),
       // Leaving has to hand the camera back. Resetting the display and leaving
       // the lease held would strand a shared camera for every other consumer,
@@ -585,6 +617,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               'marker',
               declaredSizes(board).marker,
             ),
+            // A second session in the same run starts where the first did:
+            // no steps heard yet, no direction said, no line on screen that
+            // belongs to the last one.
+            setVariable(VARIABLES.sounded, 'sounded', '0'),
+            setVariable(VARIABLES.cued, 'cued', ''),
+            setVariable(VARIABLES.translated, 'translated', ''),
+            setVariable(VARIABLES.status, 'status', ''),
+            setVariable(VARIABLES.adopted, 'adopted', ''),
             setVariable(VARIABLES.screen, 'screen', 'capture'),
             switchBackdrop(backdropName),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
@@ -800,11 +840,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                   ),
                 ),
               ),
+              // Into the status line itself. It was a second line under a
+              // status that said the same things at more length, and the
+              // operator reads one line at most.
               ...chain(
                 () => readVariable(VARIABLES.guidance, 'guidance'),
                 ADVICE,
-                VARIABLES.advice,
-                'advice',
+                VARIABLES.status,
+                'status',
               ),
             ],
           ),
@@ -1068,7 +1111,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
-                [VARIABLES.advice]: ['advice', ''],
+                [VARIABLES.adopted]: ['adopted', ''],
                 [VARIABLES.automatic]: ['automatic', 'false'],
                 [VARIABLES.samples]: ['samples', 0],
                 [VARIABLES.quality]: ['quality', 0],
@@ -1132,6 +1175,15 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         : []),
       ...(embedExtensions
         ? [
+            backButtonTarget(
+              backButtonCostume(),
+              md5(backButtonCostume().contents),
+              BACK_BUTTON_AT,
+              MESSAGES.back,
+              titleButtons().length + 2,
+              MESSAGES.repaint,
+              sessionOver(),
+            ),
             guideTarget(
               guideCostumes(),
               guideCostumes().map((costume) => md5(costume.contents)),
@@ -1189,6 +1241,22 @@ export function createProject(title: string, options: ProjectOptions = {}) {
   };
 }
 
+/** The way back's one costume, which the source directory stores as well. */
+export function backButtonCostume(): { name: string; contents: string } {
+  return { name: 'back', contents: backButton() };
+}
+
+/** A session that has ended, one way or the other, while its screen is up. */
+function sessionOver(): Reporter {
+  return both(
+    equals(readVariable(VARIABLES.screen, 'screen'), 'capture'),
+    not(both(not(uiIs('solved')), not(uiIs('error')))),
+  );
+}
+
+/** Bottom right, clear of the monitors, which stack down the left. */
+const BACK_BUTTON_AT = { x: 170, y: -150 };
+
 /**
  * What decides which monitors are on screen. Changes only when the answer can.
  */
@@ -1196,10 +1264,16 @@ function monitorsKey(): Reporter {
   return join(
     readVariable(VARIABLES.screen, 'screen'),
     join(
-      equals(readVariable(VARIABLES.reason, 'reason'), ''),
+      readVariable(VARIABLES.ui, 'ui'),
       join(
-        equals(readVariable(VARIABLES.fit, 'プロファイルの適合'), ''),
-        lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name),
+        equals(readVariable(VARIABLES.reason, 'reason'), ''),
+        join(
+          join(
+            equals(readVariable(VARIABLES.fit, 'プロファイルの適合'), ''),
+            readVariable(VARIABLES.adopted, 'adopted'),
+          ),
+          lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name),
+        ),
       ),
     ),
   );
@@ -1212,39 +1286,42 @@ function monitorsKey(): Reporter {
  * it needs to in its own drawing, and a board with a monitor on it is a board
  * with its corner covered, on the one screen a camera is trying to read.
  *
- * During a calibration, the three things the operator reads -- which board,
- * what the keys do, what to do next -- and the others only when they have
- * something in them: a reason when something went wrong, the profile when
- * there is one to take away, and its fit when there is a verdict.
+ * During a calibration, which board and the one line saying what to do. The
+ * rest only when it is the operator's business: a reason when something went
+ * wrong; the profile once the session is solved and there is one to take away;
+ * and a fit only for a profile brought in from a file. A profile this session
+ * solved fits by construction, so a verdict on it is a line that can only ever
+ * say yes.
  */
 function applyMonitors(): Step[] {
   const capturing = () =>
     equals(readVariable(VARIABLES.screen, 'screen'), 'capture');
-  const whenFilled = (id: string, name: string): Step =>
-    ifElse(
-      both(capturing(), not(equals(readVariable(id, name), ''))),
-      [showVariable(id, name)],
-      [hideVariable(id, name)],
-    );
+  const showWhen = (condition: Reporter, id: string, name: string): Step =>
+    ifElse(condition, [showVariable(id, name)], [hideVariable(id, name)]);
+  const filled = (id: string, name: string) =>
+    not(equals(readVariable(id, name), ''));
   return [
-    ifElse(
-      capturing(),
-      [
-        showVariable(VARIABLES.board, 'board'),
-        showVariable(VARIABLES.status, 'status'),
-        showVariable(VARIABLES.advice, 'advice'),
-      ],
-      [
-        hideVariable(VARIABLES.board, 'board'),
-        hideVariable(VARIABLES.status, 'status'),
-        hideVariable(VARIABLES.advice, 'advice'),
-      ],
+    showWhen(capturing(), VARIABLES.board, 'board'),
+    showWhen(capturing(), VARIABLES.status, 'status'),
+    showWhen(
+      both(capturing(), filled(VARIABLES.reason, 'reason')),
+      VARIABLES.reason,
+      'reason',
     ),
-    whenFilled(VARIABLES.reason, 'reason'),
-    whenFilled(VARIABLES.fit, 'プロファイルの適合'),
+    showWhen(
+      both(
+        both(
+          capturing(),
+          equals(readVariable(VARIABLES.adopted, 'adopted'), 'true'),
+        ),
+        filled(VARIABLES.fit, 'プロファイルの適合'),
+      ),
+      VARIABLES.fit,
+      'プロファイルの適合',
+    ),
     ifElse(
       both(
-        capturing(),
+        both(capturing(), not(uiIs('auto'))),
         greaterThan(lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name), '0'),
       ),
       [showList(PROFILE_LIST.id, PROFILE_LIST.name)],

@@ -1,6 +1,7 @@
 import { guideCostumes } from '../src/guide.ts';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import {
+  backButtonCostume,
   backdrops,
   createProject,
   md5,
@@ -24,6 +25,8 @@ const assets = [
   ...backdrops(EMBEDS_EXTENSIONS),
   // The opening screen's controls.
   ...(EMBEDS_EXTENSIONS ? titleButtons().map((button) => button.costume) : []),
+  // The way back, once a session is over.
+  ...(EMBEDS_EXTENSIONS ? [backButtonCostume()] : []),
   // The tilt guide's four pictures, which live on one sprite over the preview.
   ...(EMBEDS_EXTENSIONS ? guideCostumes() : []),
 ].map((costume) => ({

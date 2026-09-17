@@ -360,13 +360,13 @@ describe('the calibration path', () => {
             ),
       );
     };
-    const adviceWrites = Object.values(blocks).filter(
+    const statusWrites = Object.values(blocks).filter(
       (block) =>
         block.opcode === 'data_setvariableto' &&
-        (block.fields.VARIABLE as [string, string])[0] === 'advice',
+        (block.fields.VARIABLE as [string, string])[0] === 'status',
     );
-    expect(adviceWrites.length).toBeGreaterThan(0);
-    expect(adviceWrites.some((block) => readsBoard(block))).toBe(true);
+    expect(statusWrites.length).toBeGreaterThan(0);
+    expect(statusWrites.some((block) => readsBoard(block))).toBe(true);
   });
 
   it('says the finish out loud', () => {
@@ -620,6 +620,101 @@ describe('the calibration path', () => {
     }
   });
 
+  it('puts the camera away once the profile is out', () => {
+    // A live picture after the finish invites the operator to keep holding
+    // the board up, and a running camera keeps its light on for nothing.
+    const order = scriptOrder(blocks, 'do-register').map(
+      (block) => block.opcode,
+    );
+    const published = order.indexOf(
+      'kubohiroyacameracalibration_publishCameraCalibration',
+    );
+    expect(published).toBeGreaterThan(-1);
+    expect(
+      order.indexOf('kubohiroyacamerasource_hideCameraPreview'),
+    ).toBeGreaterThan(published);
+    expect(
+      order.indexOf('kubohiroyacamerasource_stopSharedCamera'),
+    ).toBeGreaterThan(published);
+  });
+
+  it('offers a way back once a session is over, and only then', () => {
+    // Full screen hides the green flag, which was the only way back. The
+    // button is not a second stop sign: it is offered after the session has
+    // solved or failed, never while one is running.
+    const back = scriptOrder(blocks, 'do-back').map((block) => block.opcode);
+    expect(back).toContain('looks_switchbackdropto');
+    expect(back).toContain('kubohiroyacamerasource_stopSharedCamera');
+    expect(back).toContain(
+      'kubohiroyacameracalibration_cleanupCameraCalibration',
+    );
+    const sprite = enabled.targets.find(
+      (target) => (target as { name?: string }).name === 'back',
+    ) as unknown as { blocks: Record<string, ScratchBlock> };
+    const shown = sprite.blocks['back-show-1'];
+    expect(shown?.opcode).toBe('control_if_else');
+    const condition = texts(sprite.blocks, shown?.inputs.CONDITION);
+    expect(condition).toContain('solved');
+    expect(condition).toContain('error');
+    expect(condition).not.toContain('auto');
+    expect(sprite.blocks['back-start-1']?.opcode).toBe('looks_hide');
+  });
+
+  it('starts a second session in the same run from nothing', () => {
+    // The step sounds are said as progress passes what was last heard. Left
+    // at sixteen from the first session, the second one is silent.
+    for (const index of BOARDS.keys()) {
+      const written = new Map(
+        scriptOrder(blocks, `do-begin-${index}`)
+          .filter((block) => block.opcode === 'data_setvariableto')
+          .map((block) => [
+            (block.fields.VARIABLE as [string, string])[0],
+            (block.inputs.VALUE as [number, [number, string]])[1][1],
+          ]),
+      );
+      expect(written.get('sounded')).toBe('0');
+      expect(written.get('translated')).toBe('');
+    }
+  });
+
+  it('shows the operator one line while the shutter works', () => {
+    // The status used to say at length what the advice under it said again.
+    // There is one line now, and the profile and a fit verdict are not on it.
+    const stageVariables = Object.values(
+      (
+        enabled.targets[0] as unknown as {
+          variables: Record<string, [string, unknown]>;
+        }
+      ).variables,
+    ).map(([name]) => name);
+    expect(stageVariables).not.toContain('advice');
+    const rule = Object.entries(blocks).filter(([id]) =>
+      id.startsWith('watch-'),
+    );
+    const guardOf = (opcode: string, name: string) => {
+      const toggle = rule.find(
+        ([, block]) =>
+          block.opcode === opcode &&
+          JSON.stringify(block.fields).includes(`"${name}"`),
+      );
+      let parent = toggle?.[1].parent ?? null;
+      while (parent && blocks[parent]?.opcode !== 'control_if_else') {
+        parent = blocks[parent]?.parent ?? null;
+      }
+      return texts(
+        blocks,
+        parent ? blocks[parent]?.inputs.CONDITION : undefined,
+      );
+    };
+    // A fit only for a profile brought in from a file: one this session
+    // solved fits by construction.
+    expect(guardOf('data_showvariable', 'プロファイルの適合')).toContain(
+      'adopted',
+    );
+    // The profile only once the shutter has stopped.
+    expect(guardOf('data_showlist', 'profile')).toContain('auto');
+  });
+
   it('carries no extension block when the extensions are not embedded', () => {
     // The committed build. Placing a block whose extension is absent would
     // load as a project with holes in its scripts.
@@ -634,6 +729,23 @@ describe('the calibration path', () => {
     expect(off.extensionURLs).toEqual({});
   });
 });
+
+/** Every field value and literal under an input, for reading a condition. */
+function texts(blocks: Record<string, ScratchBlock>, input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.slice(1).flatMap((slot): string[] => {
+    if (Array.isArray(slot)) return slot.filter((x) => typeof x === 'string');
+    if (typeof slot !== 'string') return [];
+    const block = blocks[slot];
+    if (!block) return [];
+    return [
+      ...Object.values(block.fields).flatMap((field) =>
+        Array.isArray(field) && typeof field[0] === 'string' ? [field[0]] : [],
+      ),
+      ...Object.values(block.inputs).flatMap((child) => texts(blocks, child)),
+    ];
+  });
+}
 
 /** The blocks of one script, in the order they run. */
 function scriptOrder(
@@ -678,6 +790,7 @@ describe('what the operator is given', () => {
       'title-begin-9x6',
       'title-begin-7x5',
       'title-begin-5x4',
+      'back',
       'guide-tilt',
     ]);
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
