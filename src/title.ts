@@ -72,7 +72,7 @@ export function titleBackdrop(facts: TitleFacts): string {
     line(
       'ChArUco ボードが要ります。この端末に表示するか、',
       LEFT,
-      144,
+      156,
       12,
       DIM,
     ) +
