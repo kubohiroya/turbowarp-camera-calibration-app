@@ -405,11 +405,47 @@ describe('the calibration path', () => {
         sounds: Array<{ name: string; md5ext: string }>;
       }
     ).sounds;
-    expect(sounds.map((sound) => sound.name)).toEqual(['solved']);
-    const plays = Object.values(blocks).filter(
-      (block) => block.opcode === 'sound_play',
+    expect(sounds.map((sound) => sound.name)).toEqual([
+      ...Array.from({ length: 16 }, (_, index) => `step-${index + 1}`),
+      'solved',
+      'click',
+      'turn-top-near',
+      'turn-top-far',
+      'turn-left-near',
+      'turn-right-near',
+    ]);
+    // Every sound the project carries is played by something, and everything
+    // played is carried: a cue nothing reaches is dead weight in a two
+    // megabyte download, and one that is played and missing is silence where
+    // an instruction should be.
+    const played = new Set(
+      Object.values(blocks)
+        .filter((block) => block.opcode === 'sound_sounds_menu')
+        .map((block) => (block.fields.SOUND_MENU as [string, string])[0]),
     );
-    expect(plays).toHaveLength(1);
+    expect([...played].sort()).toEqual(
+      sounds.map((sound) => sound.name).sort(),
+    );
+  });
+
+  it('paces the ticking by how much the view would add', () => {
+    // The operator is holding the board and looking at it. A rate they can
+    // hear getting faster is the one channel that reaches them there.
+    const guide = scriptOrder(blocks, 'guide').map((block) => block.opcode);
+    expect(guide[0]).toBe('event_whenflagclicked');
+    expect(guide).toContain('control_forever');
+    const waits = Object.values(blocks).filter(
+      (block) => block.opcode === 'control_wait',
+    );
+    // One in the watch loop, one here -- and this one's length is computed
+    // rather than fixed, which is the whole point.
+    expect(waits.length).toBe(2);
+    expect(
+      waits.some((block) => {
+        const duration = block.inputs.DURATION as [number, unknown] | undefined;
+        return Array.isArray(duration) && typeof duration[1] === 'string';
+      }),
+    ).toBe(true);
   });
 
   it('never tells the operator to press a key the shutter already handles', () => {
@@ -754,10 +790,13 @@ describe('the capture buttons', () => {
       );
       expect(loops, sprite.name).toHaveLength(0);
     }
+    // The stage may keep more than one loop -- mirroring reporters and pacing
+    // a sound want different intervals -- but each has to give the frame back,
+    // which the next test is about.
     const stageLoops = Object.values(
       stage.blocks as Record<string, ScratchBlock>,
     ).filter((block) => block.opcode === 'control_forever');
-    expect(stageLoops).toHaveLength(1);
+    expect(stageLoops.length).toBeGreaterThan(0);
   });
 
   it('gives the frame back on every pass of the watch loop', () => {
@@ -770,7 +809,7 @@ describe('the capture buttons', () => {
     // frame grab do not get, and this project is nothing but a camera preview
     // and a frame grab.
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
-    const loop = Object.values(stageBlocks).find(
+    const loops = Object.values(stageBlocks).filter(
       (block) => block.opcode === 'control_forever',
     );
     const walk = (id: string | null | undefined): string[] => {
@@ -784,10 +823,13 @@ describe('the capture buttons', () => {
       }
       return found;
     };
-    const substack = (
-      loop?.inputs.SUBSTACK as [number, string] | undefined
-    )?.[1];
-    expect(walk(substack)).toContain('control_wait');
+    expect(loops.length).toBeGreaterThan(0);
+    for (const loop of loops) {
+      const substack = (
+        loop.inputs.SUBSTACK as [number, string] | undefined
+      )?.[1];
+      expect(walk(substack), 'every stage loop').toContain('control_wait');
+    }
   });
 
   it('settles every button at the green flag as well as on the message', () => {

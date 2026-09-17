@@ -99,6 +99,15 @@ export function showVariable(id: string, name: string): Step {
  * and a loop that stops for six hundred milliseconds stops mirroring the
  * reporters for six hundred milliseconds.
  */
+/** Sleeps for a computed number of seconds. */
+export function waitFor(seconds: Reporter): Step {
+  return {
+    opcode: 'control_wait',
+    inputs: { DURATION: [1, [5, '0']] },
+    reporters: { DURATION: seconds },
+  };
+}
+
 export function playSound(name: string): Step {
   return {
     opcode: 'sound_play',
@@ -210,6 +219,27 @@ export function join(
   return operator('operator_join', 'STRING1', 'STRING2', left, right);
 }
 
+export function divide(
+  left: Reporter | string | number,
+  right: Reporter | string | number,
+): Reporter {
+  return operator('operator_divide', 'NUM1', 'NUM2', left, right);
+}
+
+export function multiply(
+  left: Reporter | string | number,
+  right: Reporter | string | number,
+): Reporter {
+  return operator('operator_multiply', 'NUM1', 'NUM2', left, right);
+}
+
+export function add(
+  left: Reporter | string | number,
+  right: Reporter | string | number,
+): Reporter {
+  return operator('operator_add', 'NUM1', 'NUM2', left, right);
+}
+
 export function subtract(
   left: Reporter | string,
   right: Reporter | string,
@@ -221,15 +251,20 @@ function operator(
   opcode: string,
   leftName: string,
   rightName: string,
-  left: Reporter | string,
-  right: Reporter | string,
+  left: Reporter | string | number,
+  right: Reporter | string | number,
 ): Reporter {
   const inputs: Record<string, unknown> = {};
   const reporters: Record<string, Reporter> = {};
-  if (typeof left === 'string') inputs[leftName] = text(left);
-  else reporters[leftName] = left;
-  if (typeof right === 'string') inputs[rightName] = text(right);
-  else reporters[rightName] = right;
+  const literal = (value: Reporter | string | number) =>
+    typeof value === 'number' ? String(value) : value;
+  const at = (name: string, value: Reporter | string | number) => {
+    const settled = literal(value);
+    if (typeof settled === 'string') inputs[name] = text(settled);
+    else reporters[name] = settled;
+  };
+  at(leftName, left);
+  at(rightName, right);
   return { opcode, inputs, reporters };
 }
 

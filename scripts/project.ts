@@ -6,11 +6,12 @@ import {
   printedCellMillimetres,
 } from '../src/checkerboard.ts';
 import {
-  fanfareName,
-  fanfareRate,
-  fanfareSampleCount,
-  fanfareWav,
-} from '../src/fanfare.ts';
+  CLICK_SOUND,
+  DIRECTION_SOUNDS,
+  SOLVED_SOUND,
+  sounds,
+  stepSoundName,
+} from '../src/sounds.ts';
 import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
   both,
@@ -21,9 +22,12 @@ import {
   extensionStep,
   forever,
   greaterThan,
+  add,
+  divide,
   ifElse,
   ifThen,
   join,
+  multiply,
   playSound,
   not,
   readVariable,
@@ -33,6 +37,7 @@ import {
   showVariable,
   switchBackdrop,
   waitSeconds,
+  waitFor,
   whenFlagClicked,
   whenKeyPressed,
   type BlockMap,
@@ -192,6 +197,12 @@ const VARIABLES = {
   painted: 'painted',
   translated: 'translated',
   announced: 'announced',
+  novelty: 'novelty',
+  turn: 'turn',
+  turnWords: 'turn-words',
+  cued: 'cued',
+  progress: 'progress',
+  sounded: 'sounded',
   board: 'board',
   columns: 'columns',
   rows: 'rows',
@@ -258,9 +269,18 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
   // The one instruction people get wrong, so it says what does not work as
   // well as what does. Sliding the board keeps every view the same shape, and
   // a set of same-shaped views cannot separate focal length from distance.
+  // Names the direction the extension asked for, so the instruction is one
+  // the operator can carry out rather than interpret. The sound says the same
+  // thing at the same moment, for the times they are not looking.
+  // Names the direction the extension asked for, so the instruction is one
+  // the operator can carry out rather than interpret. The sound says the same
+  // thing at the same moment, for the times they are not looking at all.
   [
     'tilt-more',
-    '板を手前や奥に傾けてください。上下左右にずらすだけでは、何枚撮っても解けません',
+    join(
+      '板を ',
+      join(readVariable('turn-words', 'turn words'), ' 傾けてください'),
+    ),
   ],
   ['keep-going', 'そのまま、角度と距離を変えながら続けてください'],
   // Not "keep going": more of the same is the thing that is not working.
@@ -371,6 +391,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             setVariable(VARIABLES.painted, 'painted', ''),
             setVariable(VARIABLES.translated, 'translated', ''),
             setVariable(VARIABLES.announced, 'announced', ''),
+            setVariable(VARIABLES.cued, 'cued', ''),
+            setVariable(VARIABLES.sounded, 'sounded', '0'),
             setVariable(VARIABLES.ui, 'ui', 'idle'),
             setVariable(VARIABLES.state, 'state', 'idle'),
             // Closed to begin with. The strip sits over the camera picture,
@@ -547,6 +569,57 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         ),
       ]),
 
+      // Guidance for the ear, on a loop of its own.
+      //
+      // Separate from the watch loop because it sleeps, and for a length that
+      // changes: a loop that mirrors reporters cannot also be the loop that
+      // paces a sound. The two would have to agree on an interval and neither
+      // wants the other's.
+      script('guide', 48, 1040, whenFlagClicked(), [
+        forever([
+          // Only while the shutter is watching and something usable is in
+          // frame. Ticking at an empty frame would be the machine talking
+          // about itself.
+          ifThen(
+            both(
+              uiIs('auto'),
+              greaterThan(readVariable(VARIABLES.novelty, 'novelty'), '0'),
+            ),
+            [
+              // Said when it changes, not on a loop: a direction repeated
+              // every second is noise, and the operator already knows.
+              ifThen(
+                not(
+                  equals(
+                    readVariable(VARIABLES.turn, 'turn'),
+                    readVariable(VARIABLES.cued, 'cued'),
+                  ),
+                ),
+                [
+                  setVariableFrom(
+                    VARIABLES.cued,
+                    'cued',
+                    readVariable(VARIABLES.turn, 'turn'),
+                  ),
+                  ...directionCues(),
+                ],
+              ),
+              playSound(CLICK_SOUND),
+            ],
+          ),
+          // Faster the closer the view is to one worth keeping: about twice a
+          // second at nothing, twenty at everything. The number is how much
+          // this view would add, so the operator hears themselves getting
+          // warmer without looking away from the board.
+          waitFor(
+            divide(
+              1,
+              add(2, multiply(readVariable(VARIABLES.novelty, 'novelty'), 18)),
+            ),
+          ),
+        ]),
+      ]),
+
       // The reporters are mirrored into variables rather than shown as their
       // own monitors. A monitor on an extension reporter is addressed by an ID
       // the VM derives from the block's arguments, and one written by hand
@@ -592,6 +665,46 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               { CAMERA_ID: CAPTURE_CAMERA },
             ),
           ),
+          // How much the view being looked at would add, and which way the
+          // board still has to go. Both are for the ear rather than the eye:
+          // the operator is holding the board and looking at it.
+          setVariableFrom(
+            VARIABLES.novelty,
+            'novelty',
+            extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationNovelty', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ),
+          setVariableFrom(
+            VARIABLES.progress,
+            'progress',
+            extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationProgress', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ),
+          setVariableFrom(
+            VARIABLES.turn,
+            'turn',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationTiltDirection',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          // The same instruction the cue plays, in words. Written from where
+          // the operator stands, because that is the only frame they have:
+          // the board is in their hands and the camera is in front of them.
+          ...chain(
+            () => readVariable(VARIABLES.turn, 'turn'),
+            [
+              ['top-near', '上side を手前に'],
+              ['top-far', '上side を奥に'],
+              ['left-near', '左side を手前に'],
+              ['right-near', '右side を手前に'],
+            ],
+            VARIABLES.turnWords,
+            'turn words',
+          ),
           // What the operator should do next, while the shutter watches. Kept
           // apart from `code` on purpose: a frame the shutter declines is the
           // ordinary case, so these would be errors several times a second,
@@ -615,7 +728,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 // the wrong sheet is worse than naming none.
                 join(
                   readVariable(VARIABLES.guidance, 'guidance'),
-                  readVariable(VARIABLES.board, 'board'),
+                  join(
+                    readVariable(VARIABLES.board, 'board'),
+                    readVariable(VARIABLES.turn, 'turn'),
+                  ),
                 ),
                 readVariable(VARIABLES.translated, 'translated'),
               ),
@@ -626,7 +742,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 'translated',
                 join(
                   readVariable(VARIABLES.guidance, 'guidance'),
-                  readVariable(VARIABLES.board, 'board'),
+                  join(
+                    readVariable(VARIABLES.board, 'board'),
+                    readVariable(VARIABLES.turn, 'turn'),
+                  ),
                 ),
               ),
               ...chain(
@@ -772,6 +891,26 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
             ],
           ),
+          // One step of sixteen, said as it is reached.
+          //
+          // A whole calibration is four gates of four steps. The chord says
+          // how far into a gate -- one note, two, three, then a different
+          // three -- and a note in front says which gate. Both read off the
+          // same rule, so there are sixteen sounds and nothing to learn.
+          ifThen(
+            greaterThan(
+              readVariable(VARIABLES.progress, 'progress'),
+              readVariable(VARIABLES.sounded, 'sounded'),
+            ),
+            [
+              setVariableFrom(
+                VARIABLES.sounded,
+                'sounded',
+                readVariable(VARIABLES.progress, 'progress'),
+              ),
+              ...stepCues(),
+            ],
+          ),
           // Said out loud, once, when it becomes true.
           //
           // The operator is holding a board at arm's length and moving it,
@@ -793,7 +932,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 readVariable(VARIABLES.ui, 'ui'),
               ),
               ifThen(equals(readVariable(VARIABLES.ui, 'ui'), 'solved'), [
-                playSound(fanfareName),
+                playSound(SOLVED_SOUND),
               ]),
             ],
           ),
@@ -834,6 +973,12 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.painted]: ['painted', ''],
                 [VARIABLES.translated]: ['translated', ''],
                 [VARIABLES.announced]: ['announced', ''],
+                [VARIABLES.novelty]: ['novelty', 0],
+                [VARIABLES.turn]: ['turn', ''],
+                [VARIABLES.turnWords]: ['turn words', ''],
+                [VARIABLES.cued]: ['cued', ''],
+                [VARIABLES.progress]: ['progress', 0],
+                [VARIABLES.sounded]: ['sounded', 0],
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
@@ -872,7 +1017,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             rotationCenterY: 180,
           };
         }),
-        sounds: embedExtensions ? [fanfareSound()] : [],
+        sounds: embedExtensions ? soundEntries() : [],
         volume: 100,
         layerOrder: 0,
         tempo: 60,
@@ -923,23 +1068,76 @@ export function createProject(title: string, options: ProjectOptions = {}) {
   };
 }
 
-/** The stage's one sound, described the way an SB3 describes sounds. */
-export function fanfare(): { name: string; bytes: Uint8Array } {
-  return { name: fanfareName, bytes: fanfareWav() };
+/**
+ * The sixteen step sounds, chosen by the step just reached.
+ *
+ * A chain rather than a computed name: a sound is named by a field on the
+ * block, which nothing can build at run time. Sixteen branches cost nothing
+ * here because the whole thing runs only when the step changes, which is
+ * sixteen times in a session.
+ */
+function stepCues(): Step[] {
+  const chain = (step: number): Step[] => {
+    if (step > 16) return [];
+    return [
+      ifElse(
+        equals(readVariable(VARIABLES.progress, 'progress'), String(step)),
+        [playSound(stepSoundName(step))],
+        chain(step + 1),
+      ),
+    ];
+  };
+  return chain(1);
 }
 
-function fanfareSound() {
-  const bytes = fanfareWav();
-  const assetId = createHash('md5').update(bytes).digest('hex');
-  return {
-    assetId,
-    name: fanfareName,
-    dataFormat: 'wav',
-    format: '',
-    rate: fanfareRate,
-    sampleCount: fanfareSampleCount(),
-    md5ext: `${assetId}.wav`,
+/**
+ * One cue per direction, chosen when the direction changes.
+ *
+ * Four timbres would be four things to learn, so these are not four of
+ * anything: the timbre says which axis and the contour says which way along
+ * it. Two facts, one bit each.
+ */
+function directionCues(): Step[] {
+  const cases = Object.entries(DIRECTION_SOUNDS);
+  const chain = (rest: typeof cases): Step[] => {
+    const [head, ...tail] = rest;
+    if (!head) return [];
+    return [
+      ifElse(
+        equals(readVariable(VARIABLES.turn, 'turn'), head[0]),
+        [playSound(head[1])],
+        chain(tail),
+      ),
+    ];
   };
+  return chain(cases);
+}
+
+/** The sounds, with the file names the source directory stores them under. */
+export function soundFiles(): ReadonlyArray<{
+  name: string;
+  bytes: Uint8Array;
+  file: string;
+}> {
+  return sounds().map((generated) => ({
+    ...generated,
+    file: `${createHash('md5').update(generated.bytes).digest('hex')}.wav`,
+  }));
+}
+
+function soundEntries() {
+  return sounds().map((generated) => {
+    const assetId = createHash('md5').update(generated.bytes).digest('hex');
+    return {
+      assetId,
+      name: generated.name,
+      dataFormat: 'wav',
+      format: '',
+      rate: generated.rate,
+      sampleCount: generated.sampleCount,
+      md5ext: `${assetId}.wav`,
+    };
+  });
 }
 
 function monitor(
