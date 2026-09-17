@@ -1,6 +1,12 @@
 import { guideCostumes } from '../src/guide.ts';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { backdrops, createProject, md5, soundFiles } from './project.ts';
+import {
+  backdrops,
+  createProject,
+  md5,
+  soundFiles,
+  titleButtons,
+} from './project.ts';
 import {
   EMBEDS_EXTENSIONS,
   EXTENSION_PINS,
@@ -15,7 +21,9 @@ const extensions = EMBEDS_EXTENSIONS
   ? EXTENSION_PINS.map(resolveExtension)
   : [];
 const assets = [
-  ...backdrops(),
+  ...backdrops(EMBEDS_EXTENSIONS),
+  // The opening screen's controls.
+  ...(EMBEDS_EXTENSIONS ? titleButtons().map((button) => button.costume) : []),
   // The tilt guide's four pictures, which live on one sprite over the preview.
   ...(EMBEDS_EXTENSIONS ? guideCostumes() : []),
 ].map((costume) => ({

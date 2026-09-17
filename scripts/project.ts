@@ -1,6 +1,32 @@
 // SPDX-License-Identifier: MPL-2.0
 import { createHash } from 'node:crypto';
-import { BOARDS, MARKER_RATIO, printedCellMillimetres } from '../src/board.ts';
+import { createRequire } from 'node:module';
+import config from '../config/app.json' with { type: 'json' };
+import {
+  boardBackdropName,
+  titleBackdrop,
+  titleBackdropName,
+} from '../src/title.ts';
+import {
+  TITLE_BUTTON_SIZE,
+  boardButton,
+  startButton,
+} from '../src/title-buttons.ts';
+
+const own = createRequire(import.meta.url)('../package.json') as {
+  version: string;
+  author: string;
+  license: string;
+};
+const appVersion = own.version;
+const appAuthor = own.author;
+const appLicense = own.license;
+import {
+  BOARDS,
+  MARKER_RATIO,
+  patternSvg,
+  printedCellMillimetres,
+} from '../src/board.ts';
 import {
   CLICK_SOUND,
   DIRECTION_SOUNDS,
@@ -44,7 +70,12 @@ import {
   type Reporter,
   type Step,
 } from './blocks.ts';
-import { guideTarget, onBroadcast, uiIs } from './sprites.ts';
+import {
+  guideTarget,
+  onBroadcast,
+  titleButtonTarget,
+  uiIs,
+} from './sprites.ts';
 import { guideCostumes } from '../src/guide.ts';
 
 /**
@@ -65,8 +96,39 @@ export function md5(contents: string): string {
   return createHash('md5').update(contents).digest('hex');
 }
 
-export function backdrops(): ReadonlyArray<{ name: string; contents: string }> {
-  return [{ name: backdropName, contents: stageBackdrop }];
+/**
+ * Every backdrop the stage can wear.
+ *
+ * The plain one during a calibration, the opening screen before it, and one
+ * per board. The boards are drawn by the extension that looks for them, so the
+ * sheet on screen and the thing being searched for cannot disagree.
+ */
+export function backdrops(
+  embedExtensions = EMBEDS_EXTENSIONS,
+): ReadonlyArray<{ name: string; contents: string }> {
+  if (!embedExtensions)
+    return [{ name: backdropName, contents: stageBackdrop }];
+  return [
+    { name: backdropName, contents: stageBackdrop },
+    { name: titleBackdropName, contents: titleBackdrop(titleFacts()) },
+    ...BOARDS.map((board) => ({
+      name: boardBackdropName(board.columns, board.rows),
+      contents: patternSvg(board),
+    })),
+  ];
+}
+
+function titleFacts() {
+  return {
+    title: config.title,
+    version: appVersion,
+    author: appAuthor,
+    license: appLicense,
+    // Fixed at build time rather than read from a clock: a copyright line that
+    // changes on New Year's Day changes the SB3's bytes with it, and a
+    // deterministic build is worth more than a current year.
+    year: 2026,
+  };
 }
 
 const CAMERA_SOURCE = 'kubohiroyacamerasource';
@@ -95,6 +157,11 @@ const MESSAGES = {
   repaint: { id: 'msg-repaint', name: 'repaint' },
   flash: { id: 'msg-flash', name: 'flash' },
   hunt: { id: 'msg-hunt', name: 'hunt' },
+  begin: { id: 'msg-begin', name: 'begin' },
+  showBoard: BOARDS.map((board) => ({
+    id: `msg-show-${board.columns}x${board.rows}`,
+    name: `show ${board.columns}x${board.rows}`,
+  })),
 } as const;
 
 const VARIABLES = {
@@ -109,6 +176,7 @@ const VARIABLES = {
   turnWords: 'turn-words',
   cued: 'cued',
   hunted: 'hunted',
+  screen: 'screen',
   progress: 'progress',
   sounded: 'sounded',
   fit: 'fit',
@@ -146,6 +214,12 @@ const EXPORT_STATUS = [
   'ステージ左の profile リストを右クリック → 書き出す で、ファイルに保存できます。',
   '読み込むときは、同じリストに 読み込む → i キー。',
 ].join('   /   ');
+
+/** While this machine is the one showing a board. */
+const DISPLAY_STATUS = [
+  'この画面をカメラに見せてください。',
+  '全画面ボタンで大きくなります。緑の旗で最初の画面に戻ります。',
+].join('   ');
 
 const IDLE_STATUS = [
   '緑の旗で始まります。停止ボタンでカメラを返します。',
@@ -321,18 +395,17 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       showVariable(VARIABLES.status, 'status'),
       // The one thing the operator reads while their hands are busy.
       ...(embedExtensions ? [showVariable(VARIABLES.advice, 'advice')] : []),
-      switchBackdrop(backdropName),
-      // The flag starts the calibration. There is no mode to pick first: this
-      // project does one thing, the board it defaults to is the one the page
-      // offers first, and the shutter watches by itself -- so anything the
-      // operator had to press before the camera came on would be a step that
-      // asks them to confirm what they already said by pressing the flag.
-      //
-      // Only in the build that has a camera path. With it off there is nothing
-      // to start, and a message nobody receives.
+      // The flag opens the app, and the app opens on a screen that says what
+      // it is and what the operator has to fetch. One decision is asked there
+      // and nowhere else: whether this machine shows the board or calibrates a
+      // camera. Nothing in the app was asking it, and the operator arrives
+      // knowing neither.
       ...(embedExtensions
-        ? [broadcast(MESSAGES.start.id, MESSAGES.start.name)]
-        : []),
+        ? [
+            setVariable(VARIABLES.screen, 'screen', 'title'),
+            switchBackdrop(titleBackdropName),
+          ]
+        : [switchBackdrop(backdropName)]),
     ]),
   };
 
@@ -422,6 +495,34 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // Leaving has to hand the camera back. Resetting the display and leaving
       // the lease held would strand a shared camera for every other consumer,
       // with nothing on screen to say it had happened.
+
+      // Show a board on this machine, and stop being the machine that
+      // calibrates. Both roles in one project was the plan from the start;
+      // what was missing was anywhere to choose between them.
+      ...BOARDS.flatMap((board, index) => {
+        const message = MESSAGES.showBoard[index];
+        if (!message) return [];
+        return [
+          onBroadcast(`do-show-${index}`, 2280 + index * 240, 640, message, [
+            setVariable(VARIABLES.screen, 'screen', 'board'),
+            setVariable(
+              VARIABLES.board,
+              'board',
+              `${board.columns}x${board.rows}`,
+            ),
+            switchBackdrop(boardBackdropName(board.columns, board.rows)),
+            setVariable(VARIABLES.status, 'status', DISPLAY_STATUS),
+            broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+          ]),
+        ];
+      }),
+      // And the other role.
+      onBroadcast('do-begin', 3000, 640, MESSAGES.begin, [
+        setVariable(VARIABLES.screen, 'screen', 'capture'),
+        switchBackdrop(backdropName),
+        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+        broadcast(MESSAGES.start.id, MESSAGES.start.name),
+      ]),
 
       // The board finds itself.
       //
@@ -914,7 +1015,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
     );
   }
 
-  const costumes = backdrops();
+  const costumes = backdrops(embedExtensions);
   return {
     targets: [
       {
@@ -942,6 +1043,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.turnWords]: ['turn words', ''],
                 [VARIABLES.cued]: ['cued', ''],
                 [VARIABLES.hunted]: ['hunted', ''],
+                [VARIABLES.screen]: ['screen', 'title'],
                 [VARIABLES.progress]: ['progress', 0],
                 [VARIABLES.sounded]: ['sounded', 0],
                 [VARIABLES.fit]: ['fit', ''],
@@ -964,10 +1066,13 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           : {},
         broadcasts: embedExtensions
           ? Object.fromEntries(
-              Object.values(MESSAGES).map((message) => [
-                message.id,
-                message.name,
-              ]),
+              // One entry per board as well, since showing a board is a
+              // message like any other.
+              Object.values(MESSAGES)
+                .flatMap((message) =>
+                  Array.isArray(message) ? message : [message],
+                )
+                .map((message) => [message.id, message.name]),
             )
           : {},
         blocks,
@@ -994,11 +1099,25 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         textToSpeechLanguage: null,
       },
       ...(embedExtensions
+        ? titleButtons().map((button, index) =>
+            titleButtonTarget(
+              button.name,
+              button.costume,
+              md5(button.costume.contents),
+              { x: button.x, y: button.y },
+              button.message,
+              index + 1,
+              MESSAGES.repaint,
+              button.size,
+            ),
+          )
+        : []),
+      ...(embedExtensions
         ? [
             guideTarget(
               guideCostumes(),
               guideCostumes().map((costume) => md5(costume.contents)),
-              1,
+              titleButtons().length + 1,
               MESSAGES.repaint,
               MESSAGES.flash,
               // Only while the shutter is collecting. Once it is solved, or
@@ -1092,6 +1211,49 @@ function directionCues(): Step[] {
     ];
   };
   return chain(cases);
+}
+
+/**
+ * The opening screen's controls, with where they sit.
+ *
+ * Laid out against the backdrop's own labels: the three boards under "ボードを
+ * 表示", the start under "校正を始める". Stage coordinates put the origin in the
+ * middle, and the backdrop is drawn from its top left, so these are the same
+ * places counted the other way.
+ */
+export function titleButtons(): ReadonlyArray<{
+  name: string;
+  costume: { name: string; contents: string };
+  x: number;
+  y: number;
+  message: { id: string; name: string };
+  size: { width: number; height: number };
+}> {
+  const boards = BOARDS.map((board, index) => {
+    const message = MESSAGES.showBoard[index];
+    return {
+      name: `title-board-${board.columns}x${board.rows}`,
+      costume: {
+        name: `board-${board.columns}x${board.rows}`,
+        contents: boardButton(board.columns, board.rows),
+      },
+      x: -184 + index * 104,
+      y: 72,
+      message: message ?? MESSAGES.begin,
+      size: TITLE_BUTTON_SIZE,
+    };
+  });
+  return [
+    ...boards,
+    {
+      name: 'title-begin',
+      costume: { name: 'begin', contents: startButton() },
+      x: -156,
+      y: 12,
+      message: MESSAGES.begin,
+      size: { width: 160, height: TITLE_BUTTON_SIZE.height },
+    },
+  ];
 }
 
 /** The sounds, with the file names the source directory stores them under. */
