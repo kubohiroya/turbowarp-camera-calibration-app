@@ -17,6 +17,7 @@ import {
 } from '../src/board.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import { guideCostumes } from '../src/guide.ts';
+import { TITLE_LAYOUT } from '../src/title.ts';
 import type { ScratchBlock } from '../scripts/blocks.ts';
 
 /**
@@ -78,6 +79,36 @@ describe('the project', () => {
     expect(hasGrid(title?.contents ?? '')).toBe(false);
     const sprites = calibrating.targets.filter((target) => !target.isStage);
     expect(sprites.length).toBeGreaterThan(0);
+  });
+
+  it('puts each opening-screen button under its own label, and on the stage', () => {
+    // The labels are drawn in SVG, where y grows downward from the top; the
+    // buttons are sprites, where y grows upward from the middle. The first
+    // layout worked the two out separately and got the sign wrong, which put
+    // every button over the text it was meant to sit under. So this checks
+    // the result in the backdrop's coordinates, where both are measured.
+    const svgY = (stageY: number) => 180 - stageY;
+    const buttons = titleButtons();
+    const boards = buttons.filter((button) =>
+      button.name.startsWith('title-board'),
+    );
+    const begin = buttons.find((button) => button.name === 'title-begin');
+    expect(boards).toHaveLength(3);
+    for (const button of boards) {
+      const top = svgY(button.y) - button.size.height / 2;
+      const bottom = svgY(button.y) + button.size.height / 2;
+      expect(top, button.name).toBeGreaterThan(TITLE_LAYOUT.boardLabelY);
+      expect(bottom, button.name).toBeLessThan(TITLE_LAYOUT.beginLabelY - 11);
+      const left = button.x + 240 - button.size.width / 2;
+      const right = button.x + 240 + button.size.width / 2;
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(right).toBeLessThanOrEqual(480);
+    }
+    expect(begin).toBeDefined();
+    const beginTop = svgY(begin?.y ?? 0) - (begin?.size.height ?? 0) / 2;
+    const beginBottom = svgY(begin?.y ?? 0) + (begin?.size.height ?? 0) / 2;
+    expect(beginTop).toBeGreaterThan(TITLE_LAYOUT.beginLabelY);
+    expect(beginBottom).toBeLessThanOrEqual(360);
   });
 
   it('gives every costume a size Scratch can read', () => {

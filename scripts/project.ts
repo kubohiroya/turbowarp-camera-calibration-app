@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import config from '../config/app.json' with { type: 'json' };
 import {
+  TITLE_LAYOUT,
   boardBackdropName,
   titleBackdrop,
   titleBackdropName,
+  toStage,
 } from '../src/title.ts';
 import {
   TITLE_BUTTON_SIZE,
@@ -1274,29 +1276,37 @@ export function titleButtons(): ReadonlyArray<{
   message: { id: string; name: string };
   size: { width: number; height: number };
 }> {
+  const width = TITLE_BUTTON_SIZE.width;
   const boards = BOARDS.map((board, index) => {
     const message = MESSAGES.showBoard[index];
+    const left = TITLE_LAYOUT.left + index * (width + TITLE_LAYOUT.gap);
+    const centre = toStage(left + width / 2, TITLE_LAYOUT.boardRowY);
     return {
       name: `title-board-${board.columns}x${board.rows}`,
       costume: {
         name: `board-${board.columns}x${board.rows}`,
         contents: boardButton(board.columns, board.rows),
       },
-      x: -184 + index * 104,
-      y: 72,
+      x: centre.x,
+      y: centre.y,
       message: message ?? MESSAGES.begin,
       size: TITLE_BUTTON_SIZE,
     };
   });
+  const beginWidth = 160;
+  const begin = toStage(
+    TITLE_LAYOUT.left + beginWidth / 2,
+    TITLE_LAYOUT.beginRowY,
+  );
   return [
     ...boards,
     {
       name: 'title-begin',
       costume: { name: 'begin', contents: startButton() },
-      x: -156,
-      y: 12,
+      x: begin.x,
+      y: begin.y,
       message: MESSAGES.begin,
-      size: { width: 160, height: TITLE_BUTTON_SIZE.height },
+      size: { width: beginWidth, height: TITLE_BUTTON_SIZE.height },
     },
   ];
 }
