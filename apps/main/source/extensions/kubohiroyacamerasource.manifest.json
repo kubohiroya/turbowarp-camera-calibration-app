@@ -1,0 +1,340 @@
+{
+  "formatVersion": 1,
+  "id": "kubohiroyacamerasource",
+  "blocks": [
+    {
+      "opcode": "cameraConditionsGeneration",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraConditionsJson",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraDeviceCount",
+      "blockType": "REPORTER",
+      "arguments": []
+    },
+    {
+      "opcode": "cameraDeviceIdAt",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "INDEX",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraDeviceIdReporter",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraDeviceLabelAt",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "INDEX",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraError",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraErrorCode",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraFrameHeight",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraFrameRate",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraFrameWidth",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileAdaptation",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileCompatibility",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileCompatibilityDetail",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileError",
+      "blockType": "REPORTER",
+      "arguments": []
+    },
+    {
+      "opcode": "cameraProfileErrorDetail",
+      "blockType": "REPORTER",
+      "arguments": []
+    },
+    {
+      "opcode": "cameraProfileIntrinsicsJson",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileJson",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileRegistered",
+      "blockType": "BOOLEAN",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "cameraProfileYaml",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "forgetCameraProfile",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "hideCameraPreview",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "isCameraRunning",
+      "blockType": "BOOLEAN",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "refreshCameraDevices",
+      "blockType": "COMMAND",
+      "arguments": []
+    },
+    {
+      "opcode": "registerCameraProfile",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "PROFILE_JSON",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "registerCameraProfileAs",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        },
+        {
+          "id": "PROFILE_JSON",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "restoreStoredCameraProfile",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "saveCameraProfile",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "showCameraPreview",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        },
+        {
+          "id": "PREVIEW_FLIP",
+          "type": "STRING",
+          "menu": "flips"
+        }
+      ]
+    },
+    {
+      "opcode": "startSharedCamera",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        },
+        {
+          "id": "DEVICE_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "stopSharedCamera",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "storedCameraProfileDetail",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "storedCameraProfileResult",
+      "blockType": "REPORTER",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "opcode": "storedCameraProfilesGeneration",
+      "blockType": "REPORTER",
+      "arguments": []
+    }
+  ],
+  "menus": [
+    {
+      "id": "flips",
+      "acceptReporters": true
+    }
+  ]
+}

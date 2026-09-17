@@ -174,9 +174,9 @@ describe('the project', () => {
     }
   });
 
-  it('is deterministic and leaves the calibration path disabled', () => {
+  it('is deterministic and ships with the calibration path on', () => {
     expect(createProject('Test')).toEqual(createProject('Test'));
-    expect(featureFlags.captureAndSolveV1).toBe(false);
+    expect(featureFlags.captureAndSolveV1).toBe(true);
   });
 });
 

@@ -51,8 +51,7 @@ Boards are named by their squares. The calibration block is given inner corners,
 ## Remaining work
 
 - Check on real hardware the solved screen (QR code, back button) and file export and import.
-- Then turn `captureAndSolveV1` on by default, so the distributed SB3 carries calibration.
-- Read the profile in consuming apps (time-space-sync-app and others), from the QR code with turbowarp-jsqr or from a file.
+- Read the profile in consuming apps (time-space-sync-app, photogrammetry-app), from the QR code with turbowarp-jsqr or from a file. The realtime-motion-capture-app camera app already does.
 
 ## Modes
 
@@ -80,7 +79,7 @@ pnpm dev
 ```
 
 - `config/app.json`: name, modes, description, and remaining work.
-- `config/feature-flags.ts`: experimental feature flags, fixed at startup and OFF by default.
+- `config/feature-flags.ts`: feature flags, fixed at startup. Capture and calibration (`captureAndSolveV1`) is on by default.
 - `scripts/project.ts`: the source of truth for the startup-check SB3.
 - `apps/main/source`: the generated unpacked SB3 sources.
 - `src`: the distribution page built on the shared shell.
@@ -100,7 +99,7 @@ After changing `project.ts` or the title, run `pnpm source:update` to regenerate
 
 ## Rollback and task management
 
-Calibration in the SB3 is behind `captureAndSolveV1` in `config/feature-flags.ts`, OFF by default: with it OFF the SB3 embeds no extensions and the page still shows the boards.
+Calibration in the SB3 is behind `captureAndSolveV1` in `config/feature-flags.ts`, ON by default: the SB3 the page offers calibrates as it is (about 2.7 MB). To roll back, set it to `false` and run `pnpm source:update`; the SB3 then embeds no extensions, is a few kilobytes, and the page still shows the boards.
 
 GitHub Issues and pull requests are the source of truth for progress.
 
