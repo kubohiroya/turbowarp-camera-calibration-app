@@ -25,6 +25,7 @@
     "format:write": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "board:check": "node scripts/check-board.ts",
     "check": "pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run source:check && pnpm run test && pnpm run build",
     "template:init": "node scripts/init-app.ts"
   },
@@ -38,6 +39,7 @@
     "@kubohiroya/turbowarp-camera-source": "0.9.1",
     "@types/node": "24.13.3",
     "eslint": "9.39.5",
+    "playwright": "^1.63.0",
     "prettier": "3.9.6",
     "typescript": "5.9.3",
     "typescript-eslint": "8.66.0",

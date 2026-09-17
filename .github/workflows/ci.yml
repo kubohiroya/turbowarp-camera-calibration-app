@@ -14,3 +14,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      # Kept out of `pnpm check` because it starts a browser, which is the only
+      # place OpenCV can be asked anything: it registers its API through embind
+      # when the WebAssembly module initializes, and does not finish
+      # initializing under Node.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run board:check
