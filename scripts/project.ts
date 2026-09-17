@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import config from '../config/app.json' with { type: 'json' };
 import {
+  TITLE_LAYOUT,
   boardBackdropName,
   titleBackdrop,
   titleBackdropName,
+  toStage,
 } from '../src/title.ts';
 import {
   TITLE_BUTTON_SIZE,
@@ -66,6 +68,7 @@ import {
   waitFor,
   whenFlagClicked,
   whenKeyPressed,
+  whenStageClicked,
   type BlockMap,
   type Reporter,
   type Step,
@@ -113,10 +116,38 @@ export function backdrops(
     { name: titleBackdropName, contents: titleBackdrop(titleFacts()) },
     ...BOARDS.map((board) => ({
       name: boardBackdropName(board.columns, board.rows),
-      contents: patternSvg(board),
+      contents: asBackdrop(patternSvg(board)),
     })),
   ];
 }
+
+/**
+ * The board, sized to the stage.
+ *
+ * The extension draws it for a page: a 1000 by 750 viewBox stretched to
+ * `100%` of whatever holds it. Scratch cannot resolve a percentage, so it took
+ * the viewBox as the costume's size, centred a 480 by 360 stage on the middle
+ * of the costume's top-left corner, and showed the top-left of the board and
+ * nothing else. Giving it the stage's size keeps the viewBox, so the drawing is
+ * scaled into the stage rather than cropped by it -- the two share an aspect
+ * ratio, so nothing is stretched either. TurboWarp re-renders an SVG costume
+ * at the size it is shown, so full screen stays sharp.
+ */
+function asBackdrop(svg: string): string {
+  const sized = svg.replace(
+    'width="100%" height="100%"',
+    `width="${STAGE_WIDTH}" height="${STAGE_HEIGHT}"`,
+  );
+  if (sized === svg) {
+    throw new Error(
+      'The board no longer says width="100%" height="100%"; check how it is sized before it is put on the stage.',
+    );
+  }
+  return sized;
+}
+
+const STAGE_WIDTH = 480;
+const STAGE_HEIGHT = 360;
 
 function titleFacts() {
   return {
@@ -214,12 +245,6 @@ const EXPORT_STATUS = [
   'ステージ左の profile リストを右クリック → 書き出す で、ファイルに保存できます。',
   '読み込むときは、同じリストに 読み込む → i キー。',
 ].join('   /   ');
-
-/** While this machine is the one showing a board. */
-const DISPLAY_STATUS = [
-  'この画面をカメラに見せてください。',
-  '全画面ボタンで大きくなります。緑の旗で最初の画面に戻ります。',
-].join('   ');
 
 const IDLE_STATUS = [
   '緑の旗で始まります。停止ボタンでカメラを返します。',
@@ -511,11 +536,33 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               `${board.columns}x${board.rows}`,
             ),
             switchBackdrop(boardBackdropName(board.columns, board.rows)),
-            setVariable(VARIABLES.status, 'status', DISPLAY_STATUS),
+            // Nothing on top of the board. The monitors sit in the top-left
+            // corner, and the status line runs across the width of the stage
+            // -- over the quiet zone and the first row of markers, which is
+            // exactly what the camera on the other machine is trying to read.
+            hideVariable(VARIABLES.board, 'board'),
+            hideVariable(VARIABLES.status, 'status'),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
           ]),
         ];
       }),
+      // Back to the opening screen from a board, by clicking anywhere.
+      //
+      // The board fills the screen and hides the buttons, so there is nothing
+      // left to press -- and the green flag, the only way back until now, is
+      // off the stage entirely once it is full screen. The whole board is the
+      // button. Only while a board is up: during a calibration a click on the
+      // stage means nothing, and must not end the session.
+      script('stage-click', 2280, 960, whenStageClicked(), [
+        ifThen(equals(readVariable(VARIABLES.screen, 'screen'), 'board'), [
+          setVariable(VARIABLES.screen, 'screen', 'title'),
+          switchBackdrop(titleBackdropName),
+          setVariable(VARIABLES.status, 'status', IDLE_STATUS),
+          showVariable(VARIABLES.board, 'board'),
+          showVariable(VARIABLES.status, 'status'),
+          broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+        ]),
+      ]),
       // And the other role.
       onBroadcast('do-begin', 3000, 640, MESSAGES.begin, [
         setVariable(VARIABLES.screen, 'screen', 'capture'),
@@ -1229,29 +1276,37 @@ export function titleButtons(): ReadonlyArray<{
   message: { id: string; name: string };
   size: { width: number; height: number };
 }> {
+  const width = TITLE_BUTTON_SIZE.width;
   const boards = BOARDS.map((board, index) => {
     const message = MESSAGES.showBoard[index];
+    const left = TITLE_LAYOUT.left + index * (width + TITLE_LAYOUT.gap);
+    const centre = toStage(left + width / 2, TITLE_LAYOUT.boardRowY);
     return {
       name: `title-board-${board.columns}x${board.rows}`,
       costume: {
         name: `board-${board.columns}x${board.rows}`,
         contents: boardButton(board.columns, board.rows),
       },
-      x: -184 + index * 104,
-      y: 72,
+      x: centre.x,
+      y: centre.y,
       message: message ?? MESSAGES.begin,
       size: TITLE_BUTTON_SIZE,
     };
   });
+  const beginWidth = 160;
+  const begin = toStage(
+    TITLE_LAYOUT.left + beginWidth / 2,
+    TITLE_LAYOUT.beginRowY,
+  );
   return [
     ...boards,
     {
       name: 'title-begin',
       costume: { name: 'begin', contents: startButton() },
-      x: -156,
-      y: 12,
+      x: begin.x,
+      y: begin.y,
       message: MESSAGES.begin,
-      size: { width: 160, height: TITLE_BUTTON_SIZE.height },
+      size: { width: beginWidth, height: TITLE_BUTTON_SIZE.height },
     },
   ];
 }
