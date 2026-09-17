@@ -364,6 +364,73 @@ describe('the calibration path', () => {
     }
   });
 
+  it('names the board the operator is meant to be holding', () => {
+    // Three sheets come out of the page and they look alike at arm's length.
+    // "Show the board" does not pick one, and only the selected one will be
+    // found -- so the messages that are about the board read its name rather
+    // than spelling one in.
+    const readsBoard = (block: ScratchBlock): boolean => {
+      if (block.opcode === 'data_variable') {
+        return (block.fields.VARIABLE as [string, string])[0] === 'board';
+      }
+      return Object.values(block.inputs).some(
+        (input) =>
+          Array.isArray(input) &&
+          input
+            .slice(1)
+            .some(
+              (slot) =>
+                typeof slot === 'string' &&
+                blocks[slot] !== undefined &&
+                readsBoard(blocks[slot]),
+            ),
+      );
+    };
+    const adviceWrites = Object.values(blocks).filter(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[0] === 'advice',
+    );
+    expect(adviceWrites.length).toBeGreaterThan(0);
+    expect(adviceWrites.some((block) => readsBoard(block))).toBe(true);
+  });
+
+  it('says the finish out loud', () => {
+    // The operator is holding a board at arm's length and moving it, which is
+    // the posture in which a message appearing somewhere is least likely to be
+    // read. And there is nothing left for them to press: the shutter solves in
+    // the background and ends the session itself.
+    const sounds = (
+      enabled.targets[0] as unknown as {
+        sounds: Array<{ name: string; md5ext: string }>;
+      }
+    ).sounds;
+    expect(sounds.map((sound) => sound.name)).toEqual(['solved']);
+    const plays = Object.values(blocks).filter(
+      (block) => block.opcode === 'sound_play',
+    );
+    expect(plays).toHaveLength(1);
+  });
+
+  it('never tells the operator to press a key the shutter already handles', () => {
+    // It used to stop at the sample limit and say "press v to solve", and
+    // pressing v earned a refusal: the set it stopped on was the set it could
+    // not solve. The shutter makes room and keeps going now, so there is no
+    // such message and no such state.
+    const messages = Object.values(blocks)
+      .filter((block) => block.opcode === 'data_setvariableto')
+      .map((block) => {
+        const value = block.inputs.VALUE as
+          [number, [number, string]] | undefined;
+        return Array.isArray(value) && Array.isArray(value[1])
+          ? value[1][1]
+          : '';
+      })
+      .join(' ');
+    expect(messages).not.toContain('上限');
+    expect(messages).not.toContain('vで解いて');
+  });
+
   it('puts the reason on screen, not only the code', () => {
     // A black preview has several causes and they look identical. The
     // extension has the sentence that separates them and the project was
