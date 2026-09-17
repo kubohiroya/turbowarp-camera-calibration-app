@@ -364,6 +364,37 @@ describe('the calibration path', () => {
     }
   });
 
+  it('names the board the operator is meant to be holding', () => {
+    // Three sheets come out of the page and they look alike at arm's length.
+    // "Show the board" does not pick one, and only the selected one will be
+    // found -- so the messages that are about the board read its name rather
+    // than spelling one in.
+    const readsBoard = (block: ScratchBlock): boolean => {
+      if (block.opcode === 'data_variable') {
+        return (block.fields.VARIABLE as [string, string])[0] === 'board';
+      }
+      return Object.values(block.inputs).some(
+        (input) =>
+          Array.isArray(input) &&
+          input
+            .slice(1)
+            .some(
+              (slot) =>
+                typeof slot === 'string' &&
+                blocks[slot] !== undefined &&
+                readsBoard(blocks[slot]),
+            ),
+      );
+    };
+    const adviceWrites = Object.values(blocks).filter(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[0] === 'advice',
+    );
+    expect(adviceWrites.length).toBeGreaterThan(0);
+    expect(adviceWrites.some((block) => readsBoard(block))).toBe(true);
+  });
+
   it('puts the reason on screen, not only the code', () => {
     // A black preview has several causes and they look identical. The
     // extension has the sentence that separates them and the project was

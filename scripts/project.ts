@@ -230,8 +230,21 @@ const MANUAL_STATUS = [
  * `tilt-more`, because focal length and distance stay inseparable until the
  * board is turned.
  */
-const ADVICE: ReadonlyArray<readonly [string, string]> = [
-  ['show-the-board', 'ボードをカメラに写してください'],
+/** The board this session is looking for, for the messages that need to say. */
+const selectedBoard = () => readVariable(VARIABLES.board, 'board');
+
+const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
+  // Named rather than described. Three sheets come out of the page and they
+  // look alike at arm's length, so "the board" is not enough to pick one --
+  // and the selected one is the only one that will be found.
+  ['show-the-board', join(selectedBoard(), ' の板をカメラに写してください')],
+  [
+    'wrong-board',
+    join(
+      join('別の板のようです。選択中は ', selectedBoard()),
+      ' です。その板をかざすか、1/2/3 で選び直してください',
+    ),
+  ],
   ['hold-steadier', 'ぶれています。少し止めるか、近づけてください'],
   ['move-or-tilt', '同じ見え方です。動かすか傾けてください'],
   ['tilt-more', '傾けてください。横にずらすだけでは解けません'],
@@ -253,16 +266,21 @@ const DISABLED_STATUS =
  */
 function chain(
   read: () => Reporter,
-  cases: ReadonlyArray<readonly [string, string]>,
+  cases: ReadonlyArray<readonly [string, string | Reporter]>,
   target: string,
   label: string,
 ): Step[] {
   const [head, ...rest] = cases;
   if (!head) return [setVariable(target, label, '')];
+  const [when, message] = head;
   return [
     ifElse(
-      equals(read(), head[0]),
-      [setVariable(target, label, head[1])],
+      equals(read(), when),
+      [
+        typeof message === 'string'
+          ? setVariable(target, label, message)
+          : setVariableFrom(target, label, message),
+      ],
       chain(read, rest, target, label),
     ),
   ];
@@ -572,7 +590,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           ifThen(
             not(
               equals(
-                readVariable(VARIABLES.guidance, 'guidance'),
+                // The board is in the key because it is in the message. With
+                // the guidance alone, switching boards while it held still
+                // would leave the previous board's name on screen -- naming
+                // the wrong sheet is worse than naming none.
+                join(
+                  readVariable(VARIABLES.guidance, 'guidance'),
+                  readVariable(VARIABLES.board, 'board'),
+                ),
                 readVariable(VARIABLES.translated, 'translated'),
               ),
             ),
@@ -580,7 +605,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               setVariableFrom(
                 VARIABLES.translated,
                 'translated',
-                readVariable(VARIABLES.guidance, 'guidance'),
+                join(
+                  readVariable(VARIABLES.guidance, 'guidance'),
+                  readVariable(VARIABLES.board, 'board'),
+                ),
               ),
               ...chain(
                 () => readVariable(VARIABLES.guidance, 'guidance'),
