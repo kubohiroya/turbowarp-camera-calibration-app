@@ -22,6 +22,9 @@ import {
   whenBroadcastReceived,
   whenFlagClicked,
   pointInDirection,
+  setEffect,
+  switchCostume,
+  waitSeconds,
   whenSpriteClicked,
   type BlockMap,
   type Reporter,
@@ -135,6 +138,104 @@ export function buttonTarget(
     visible: false,
     x: button.x,
     y: button.y,
+    size: 100,
+    direction: 90,
+    draggable: false,
+    rotationStyle: 'all around',
+  };
+}
+
+/**
+ * The tilt guide: one sprite, four costumes, over the camera picture.
+ *
+ * Not a button. It sits in the middle of the stage where the operator is
+ * already looking -- at the preview, to see whether the board is in frame --
+ * and it is translucent, because what is behind it is the thing being worked
+ * on.
+ *
+ * It flashes when a step is reached. That is the only moment in a session
+ * where something went right and nothing on screen would otherwise move, and
+ * the operator's hands are busy: the sound says it happened, and this says
+ * where to keep looking.
+ */
+export function guideTarget(
+  costumes: ReadonlyArray<{ name: string; contents: string }>,
+  assetIds: readonly string[],
+  layerOrder: number,
+  repaint: { id: string; name: string },
+  flash: { id: string; name: string },
+  ui: Reporter,
+): Record<string, unknown> {
+  const wear = (index: number): Step[] => {
+    const costume = costumes[index];
+    if (!costume) return [];
+    const rest = wear(index + 1);
+    return [
+      ifElse(
+        equals(
+          readVariable('turn', 'turn'),
+          costume.name.replace('guide-', ''),
+        ),
+        [switchCostume(costume.name)],
+        rest,
+      ),
+    ];
+  };
+  return {
+    isStage: false,
+    name: 'guide-tilt',
+    variables: {},
+    lists: {},
+    broadcasts: {},
+    blocks: {
+      ...script(
+        `guide-tilt-show`,
+        48,
+        48,
+        whenBroadcastReceived(repaint.id, repaint.name),
+        [ifElse(ui, [show], [hide]), ...wear(0)],
+      ),
+      ...script(`guide-tilt-start`, 48, 200, whenFlagClicked(), [
+        // Translucent from the start and never opaque: the picture underneath
+        // is the one being worked on.
+        setEffect('GHOST', 58),
+        setEffect('BRIGHTNESS', 0),
+        ifElse(ui, [show], [hide]),
+        ...wear(0),
+      ]),
+      // Half a second of light, on its own script so the stage's loops do not
+      // stop for it.
+      ...script(
+        `guide-tilt-flash`,
+        48,
+        360,
+        whenBroadcastReceived(flash.id, flash.name),
+        [
+          setEffect('GHOST', 18),
+          setEffect('BRIGHTNESS', 45),
+          waitSeconds(0.5),
+          setEffect('BRIGHTNESS', 0),
+          setEffect('GHOST', 58),
+        ],
+      ),
+    },
+    comments: {},
+    currentCostume: 0,
+    costumes: costumes.map((costume, index) => ({
+      assetId: assetIds[index] ?? '',
+      name: costume.name,
+      bitmapResolution: 1,
+      md5ext: `${assetIds[index] ?? ''}.svg`,
+      dataFormat: 'svg',
+      rotationCenterX: 110,
+      rotationCenterY: 110,
+    })),
+    sounds: [],
+    volume: 100,
+    layerOrder,
+    visible: false,
+    x: 0,
+    y: 20,
     size: 100,
     direction: 90,
     draggable: false,

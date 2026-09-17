@@ -37,6 +37,7 @@ import {
   script,
   setVariable,
   setVariableFrom,
+  hideVariable,
   showList,
   showVariable,
   switchBackdrop,
@@ -48,7 +49,14 @@ import {
   type Reporter,
   type Step,
 } from './blocks.ts';
-import { buttonTarget, onBroadcast, uiIs, type ButtonSpec } from './sprites.ts';
+import {
+  buttonTarget,
+  guideTarget,
+  onBroadcast,
+  uiIs,
+  type ButtonSpec,
+} from './sprites.ts';
+import { guideCostumes } from '../src/guide.ts';
 import {
   handleIcon,
   leaveIcon,
@@ -184,6 +192,7 @@ const MESSAGES = {
   adopt: { id: 'msg-adopt', name: 'adopt' },
   leave: { id: 'msg-leave', name: 'leave' },
   repaint: { id: 'msg-repaint', name: 'repaint' },
+  flash: { id: 'msg-flash', name: 'flash' },
   panel: { id: 'msg-panel', name: 'panel' },
 } as const;
 
@@ -946,7 +955,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 readVariable(VARIABLES.painted, 'painted'),
                 join(
                   readVariable(VARIABLES.ui, 'ui'),
-                  readVariable(VARIABLES.panel, 'panel'),
+                  join(
+                    readVariable(VARIABLES.panel, 'panel'),
+                    readVariable(VARIABLES.turn, 'turn'),
+                  ),
                 ),
               ),
             ),
@@ -956,7 +968,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 'painted',
                 join(
                   readVariable(VARIABLES.ui, 'ui'),
-                  readVariable(VARIABLES.panel, 'panel'),
+                  join(
+                    readVariable(VARIABLES.panel, 'panel'),
+                    readVariable(VARIABLES.turn, 'turn'),
+                  ),
                 ),
               ),
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
@@ -980,7 +995,24 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 readVariable(VARIABLES.progress, 'progress'),
               ),
               ...stepCues(),
+              // The sound says it happened; the overlay says where to keep
+              // looking. Both at the same moment, because they are the same
+              // fact.
+              broadcast(MESSAGES.flash.id, MESSAGES.flash.name),
             ],
+          ),
+          // Shown when there is something to read, hidden when there is not.
+          // A reason that is always on screen is furniture; one that appears
+          // is a message.
+          ifElse(
+            equals(readVariable(VARIABLES.reason, 'reason'), ''),
+            [hideVariable(VARIABLES.reason, 'reason')],
+            [showVariable(VARIABLES.reason, 'reason')],
+          ),
+          ifElse(
+            equals(readVariable(VARIABLES.fit, 'fit'), ''),
+            [hideVariable(VARIABLES.fit, 'fit')],
+            [showVariable(VARIABLES.fit, 'fit')],
           ),
           // Said out loud, once, when it becomes true.
           //
@@ -1113,6 +1145,20 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           MESSAGES.repaint,
         ),
       ),
+      ...(embedExtensions
+        ? [
+            guideTarget(
+              guideCostumes(),
+              guideCostumes().map((costume) => md5(costume.contents)),
+              strip.length + 1,
+              MESSAGES.repaint,
+              MESSAGES.flash,
+              // Only while the shutter is collecting. Once it is solved, or
+              // the camera is not running, there is nothing to tilt.
+              uiIs('auto'),
+            ),
+          ]
+        : []),
     ],
     monitors: [
       monitor(
@@ -1125,13 +1171,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       monitor(VARIABLES.status, 'status', 10, 34, opening),
       ...(embedExtensions
         ? [
-            monitor(VARIABLES.samples, 'samples', 10, 58, 0),
-            monitor(VARIABLES.quality, 'quality', 10, 82, 0),
-            monitor(VARIABLES.reprojection, 'error px', 10, 106, 0),
-            monitor(VARIABLES.code, 'code', 10, 130, ''),
-            monitor(VARIABLES.camera, 'camera', 10, 154, ''),
-            monitor(VARIABLES.reason, 'reason', 10, 178, ''),
-            monitor(VARIABLES.fit, 'fit', 10, 202, ''),
+            // Off at the start and shown only when they have something to
+            // say. The numbers were on screen because they were useful to
+            // whoever was debugging, which is not who is holding the board:
+            // the progress they were being read for is now a sound, and what
+            // is left of them is a reason for a failure, which is worth the
+            // space exactly when there is one.
+            monitor(VARIABLES.reason, 'reason', 10, 58, '', false),
+            monitor(VARIABLES.fit, 'fit', 10, 82, '', false),
+            monitor(VARIABLES.samples, 'samples', 10, 106, 0, false),
+            monitor(VARIABLES.quality, 'quality', 10, 130, 0, false),
+            monitor(VARIABLES.reprojection, 'error px', 10, 154, 0, false),
+            monitor(VARIABLES.code, 'code', 10, 178, '', false),
+            monitor(VARIABLES.camera, 'camera', 10, 202, '', false),
           ]
         : []),
     ],
@@ -1227,6 +1279,7 @@ function monitor(
   x: number,
   y: number,
   value: string | number = '',
+  visible = true,
 ) {
   return {
     id,
@@ -1239,7 +1292,7 @@ function monitor(
     height: 0,
     x,
     y,
-    visible: true,
+    visible,
     sliderMin: 0,
     sliderMax: 100,
     isDiscrete: true,
