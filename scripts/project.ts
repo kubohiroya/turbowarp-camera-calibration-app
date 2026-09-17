@@ -721,10 +721,10 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           ...chain(
             () => readVariable(VARIABLES.turn, 'turn'),
             [
-              ['top-near', '上side を手前に'],
-              ['top-far', '上side を奥に'],
-              ['left-near', '左side を手前に'],
-              ['right-near', '右side を手前に'],
+              ['top-near', '上の辺を手前に'],
+              ['top-far', '上の辺を奥に'],
+              ['left-near', '左の辺を手前に'],
+              ['right-near', '右の辺を手前に'],
             ],
             VARIABLES.turnWords,
             'turn words',
