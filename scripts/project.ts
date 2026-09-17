@@ -58,7 +58,11 @@ import {
   ifElse,
   ifThen,
   join,
-  listContents,
+  changeVariableBy,
+  itemOfList,
+  lengthOf,
+  letterOf,
+  repeat,
   multiply,
   playSound,
   not,
@@ -245,7 +249,19 @@ const VARIABLES = {
   code: 'code',
   reason: 'reason',
   camera: 'camera',
+  profileText: 'profile-text',
+  cursor: 'cursor',
+  line: 'line',
 } as const;
+
+/**
+ * A line break, as the join block carries it.
+ *
+ * The profile leaves the project as a file with one list item per line, and
+ * comes back the same way, so the text is cut on this and put back together
+ * with it.
+ */
+const NEWLINE = '\n';
 
 /**
  * The profile, in the one container that can leave a Scratch project.
@@ -359,6 +375,84 @@ const DISABLED_STATUS =
  * if/else blocks whichever way it is written. Generating it keeps the table
  * readable here and keeps the order of the branches from drifting.
  */
+/**
+ * Cuts the profile text into the list, one line per item.
+ *
+ * The list is the file: TurboWarp writes its items one per line when the
+ * operator exports it, so a YAML document split on its line breaks comes out
+ * as that document. A letter at a time, because Scratch has no split; a
+ * profile is under a kilobyte, and a loop that does not redraw runs through it
+ * within a frame.
+ */
+function profileTextToList(): Step[] {
+  const letter = () =>
+    letterOf(
+      readVariable(VARIABLES.cursor, 'cursor'),
+      readVariable(VARIABLES.profileText, 'profile text'),
+    );
+  return [
+    emptyList(PROFILE_LIST.id, PROFILE_LIST.name),
+    setVariable(VARIABLES.line, 'line', ''),
+    setVariable(VARIABLES.cursor, 'cursor', '0'),
+    repeat(lengthOf(readVariable(VARIABLES.profileText, 'profile text')), [
+      changeVariableBy(VARIABLES.cursor, 'cursor', '1'),
+      ifElse(
+        equals(letter(), NEWLINE),
+        [
+          appendToList(
+            PROFILE_LIST.id,
+            PROFILE_LIST.name,
+            readVariable(VARIABLES.line, 'line'),
+          ),
+          setVariable(VARIABLES.line, 'line', ''),
+        ],
+        [
+          setVariableFrom(
+            VARIABLES.line,
+            'line',
+            join(readVariable(VARIABLES.line, 'line'), letter()),
+          ),
+        ],
+      ),
+    ]),
+    // Camera Source ends the document with a line break, so nothing is left
+    // over; text that did not would lose its last line without this.
+    ifThen(not(equals(readVariable(VARIABLES.line, 'line'), '')), [
+      appendToList(
+        PROFILE_LIST.id,
+        PROFILE_LIST.name,
+        readVariable(VARIABLES.line, 'line'),
+      ),
+    ]),
+  ];
+}
+
+/** Puts the list's lines back together into one text, the file as it was. */
+function listToProfileText(): Step[] {
+  return [
+    setVariable(VARIABLES.profileText, 'profile text', ''),
+    setVariable(VARIABLES.cursor, 'cursor', '0'),
+    repeat(lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name), [
+      changeVariableBy(VARIABLES.cursor, 'cursor', '1'),
+      setVariableFrom(
+        VARIABLES.profileText,
+        'profile text',
+        join(
+          readVariable(VARIABLES.profileText, 'profile text'),
+          join(
+            itemOfList(
+              PROFILE_LIST.id,
+              PROFILE_LIST.name,
+              readVariable(VARIABLES.cursor, 'cursor'),
+            ),
+            NEWLINE,
+          ),
+        ),
+      ),
+    ]),
+  ];
+}
+
 function chain(
   read: () => Reporter,
   cases: ReadonlyArray<readonly [string, string | Reporter]>,
@@ -529,14 +623,18 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // And put it where it can be taken away. This app exists to produce
         // this one document; a calibration that only ever lives inside a
         // running project has not been handed to anybody.
-        emptyList(PROFILE_LIST.id, PROFILE_LIST.name),
-        appendToList(
-          PROFILE_LIST.id,
-          PROFILE_LIST.name,
-          extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationJson', {
+        //
+        // As Camera Source writes it for leaving the PC: a ROS camera_info
+        // YAML document, which ROS and OpenCV-based tools read as it is. Not
+        // this extension's own JSON, which nothing outside this family reads.
+        setVariableFrom(
+          VARIABLES.profileText,
+          'profile text',
+          extensionReporter(CAMERA_SOURCE, 'cameraProfileYaml', {
             CAMERA_ID: CAPTURE_CAMERA,
           }),
         ),
+        ...profileTextToList(),
         setVariable(VARIABLES.status, 'status', EXPORT_STATUS),
         // Nothing is being looked at any more. A live picture after the finish
         // invites the operator to keep holding the board up, and a camera kept
@@ -575,13 +673,15 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
+        // The file came in one line per item; the reader needs it whole.
+        ...listToProfileText(),
         {
           ...extensionStep(CAMERA_CALIBRATION, 'importCameraCalibration', {
             CAMERA_ID: CAPTURE_CAMERA,
             JSON: '',
           }),
           reporters: {
-            JSON: listContents(PROFILE_LIST.id, PROFILE_LIST.name),
+            JSON: readVariable(VARIABLES.profileText, 'profile text'),
           },
         },
         // Handing it to Camera Source is what makes it answerable: the
@@ -1232,6 +1332,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.code]: ['code', ''],
                 [VARIABLES.reason]: ['reason', ''],
                 [VARIABLES.camera]: ['camera', ''],
+                [VARIABLES.profileText]: ['profile text', ''],
+                [VARIABLES.cursor]: ['cursor', 0],
+                [VARIABLES.line]: ['line', ''],
               }
             : {}),
         },
@@ -1337,7 +1440,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                   ),
                 ),
               ),
-              listContents(PROFILE_LIST.id, PROFILE_LIST.name),
+              readVariable(VARIABLES.profileText, 'profile text'),
               QR_DISPLAY,
             ),
             guideTarget(

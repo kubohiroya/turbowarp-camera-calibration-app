@@ -1,0 +1,37 @@
+image_width: 1280
+image_height: 720
+camera_name: default
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [912.4371, 0, 641.2097, 0, 910.8123, 359.6452, 0, 0, 1]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.08143, -0.19207, 0.00041, -0.00112, 0.09733]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [912.4371, 0, 641.2097, 0, 0, 910.8123, 359.6452, 0, 0, 0, 1, 0]
+turbowarp_camera_source:
+  schema: "twcs/camera-intrinsics"
+  version: 1
+  profileId: "session-1"
+  calibratedAt: "2026-09-17T06:40:12.518Z"
+  producer: "turbowarp-camera-calibration"
+  undistorted: false
+  capture:
+    frameRate: 30
+    resizeMode: "none"
+    zoom: 1
+    focusMode: "continuous"
+  quality:
+    sampleCount: 18
+    reprojectionErrorPx: 0.412
+  device:
+    label: "FaceTime HD Camera"

@@ -3,3 +3,5 @@ dist/
 public/downloads/
 pnpm-lock.yaml
 apps/main/source/
+# Written byte for byte by Camera Source; the contract test compares it exactly.
+tests/fixtures/profile-default.yaml

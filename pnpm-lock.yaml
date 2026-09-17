@@ -19,11 +19,11 @@ importers:
         specifier: 0.12.0
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.13.0
-        version: 0.13.0
+        specifier: 0.14.0
+        version: 0.14.0
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.10.0
-        version: 0.10.0
+        specifier: 0.11.0
+        version: 0.11.0
       '@kubohiroya/turbowarp-qr-display':
         specifier: 0.1.0
         version: 0.1.0
@@ -131,16 +131,12 @@ packages:
     resolution: {integrity: sha512-sYt1KBEEm00biA0kjhO+1OkpSO9qb6UI++bXZvtYDQ+2sLMKM1c7vGFD8cEQsLy51cx0vSM8PUufiqb2dIwnQw==}
     engines: {node: '>=22'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.13.0':
-    resolution: {integrity: sha512-EMGME0FttD/hJ65K/jICFUNwPHQNn4mJF8/n4ol7hCBSXHukoOkbilcuS5xQjDIIqNS0vpV6fF8fEvbrKjtR8g==}
+  '@kubohiroya/turbowarp-camera-calibration@0.14.0':
+    resolution: {integrity: sha512-QPf+4zzqadC8t00pTeMjpwCYDryygS1ylUL33tzQtrMnEv1ehWVDs7oLoV2fWMIgFFz1fdCsn+ErYhyh5bnr0Q==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.10.0':
-    resolution: {integrity: sha512-9fIxjtIVzuj4h+vHcJdf2noMDYbs7IrH3YXv9hkCLXWl/Z/tdmO9fehWh41Yf5ixhGNGo3D2w6ECredHy8FtTg==}
-    engines: {node: '>=22.18.0'}
-
-  '@kubohiroya/turbowarp-camera-source@0.8.0':
-    resolution: {integrity: sha512-ziCny1gIJgYJDyVgxNDgU2yGwGLQslACVmL9aYlHAeW3LXlaVNvj1MoGOfrUP77sKkZv8xl9ahKvcI987IDKfg==}
+  '@kubohiroya/turbowarp-camera-source@0.11.0':
+    resolution: {integrity: sha512-bx91+Vy8109QwLAkM2yvLafrBUvH5C7FU74Ldn/msOL8eImC644g7/EwB9JPSSH4ZXafPKXFq1ADVMISXyCxuQ==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-qr-display@0.1.0':
@@ -1145,14 +1141,11 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.2.0': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.13.0':
+  '@kubohiroya/turbowarp-camera-calibration@0.14.0':
     dependencies:
-      '@kubohiroya/turbowarp-camera-source': 0.8.0
       comlink: 4.4.2
 
-  '@kubohiroya/turbowarp-camera-source@0.10.0': {}
-
-  '@kubohiroya/turbowarp-camera-source@0.8.0': {}
+  '@kubohiroya/turbowarp-camera-source@0.11.0': {}
 
   '@kubohiroya/turbowarp-qr-display@0.1.0':
     dependencies:

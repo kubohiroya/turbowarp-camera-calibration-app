@@ -17,6 +17,15 @@ A session whose camera settings change before the solve ends in an error rather 
 
 The small patterns inside the light squares are ArUco markers, and each one names the corners around it. A board that runs off the edge of the frame therefore still contributes the corners it does show. A plain chessboard contributes nothing unless it is seen whole, because nothing in it says which corner is which -- and **the views where the board reaches the frame edge are the ones that decide the principal point and the distortion**, so this is not a small difference.
 
+### The exported file
+
+The profile is written as a ROS `camera_info` YAML document, the format ROS's `camera_calibration_parsers` reads and writes and that ROS, OpenCV-based and SLAM tools load as it is. What ROS has no place for -- when it was calibrated, the capture settings, the quality -- travels under `turbowarp_camera_source`, which ROS's reader ignores.
+
+- **Export**: right-click an item in the profile list and choose export. The list holds one line per item, so the file is the YAML document. TurboWarp saves it as `profile.txt`; rename it to `.yaml` for ROS tools.
+- **QR code**: the same YAML, about 900 bytes.
+- **Import**: right-click the profile list, choose import, pick the file, and press `i`. The import dialog only offers `.txt`, `.csv` and `.tsv`, so rename a `.yaml` file back to `.txt`.
+- **Receiving apps** register the file under their own camera name with Camera Source's `register camera profile as`. [`tests/profile-contract.test.ts`](tests/profile-contract.test.ts) checks the format with the installed Camera Source's writer, reader and compatibility rule.
+
 ### Using the SB3
 
 | Action                                | What happens                                                                                                                                                         |
