@@ -85,6 +85,13 @@ export function titleBackdrop(facts: TitleFacts): string {
       DIM,
     ) +
     line('校正を始める', LEFT, TITLE_LAYOUT.beginLabelY, 11, DIM) +
+    line(
+      'プロファイルを使う',
+      TITLE_LAYOUT.importLeft,
+      TITLE_LAYOUT.beginLabelY,
+      11,
+      DIM,
+    ) +
     '</svg>\n'
   );
 }
@@ -109,6 +116,11 @@ export const TITLE_LAYOUT = {
   beginRowY: 300,
   left: LEFT,
   gap: 8,
+  /**
+   * The fourth column of the start row: reading a saved profile instead of
+   * making one. On the start row because it is the other way to get one.
+   */
+  importLeft: LEFT + 3 * (96 + 8),
 } as const;
 
 /** A point in the backdrop, as the stage coordinates a sprite needs. */

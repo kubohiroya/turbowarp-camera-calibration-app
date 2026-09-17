@@ -214,8 +214,37 @@ export function backButtonTarget(
   repaint: { id: string; name: string },
   when: Reporter,
 ): Record<string, unknown> {
-  const target = titleButtonTarget(
+  return screenButtonTarget(
     'back',
+    costume,
+    assetId,
+    at,
+    message,
+    layerOrder,
+    repaint,
+    when,
+  );
+}
+
+/**
+ * A button shown only while `when` holds, and hidden at the flag.
+ *
+ * For controls that belong to one moment of the app rather than to the
+ * opening screen: the way back once a session is over, applying a profile on
+ * the screen that reads one.
+ */
+export function screenButtonTarget(
+  name: string,
+  costume: { name: string; contents: string },
+  assetId: string,
+  at: { x: number; y: number },
+  message: { id: string; name: string },
+  layerOrder: number,
+  repaint: { id: string; name: string },
+  when: Reporter,
+): Record<string, unknown> {
+  const target = titleButtonTarget(
+    name,
     costume,
     assetId,
     at,
@@ -229,14 +258,14 @@ export function backButtonTarget(
     ...target,
     blocks: {
       ...script(
-        'back-show',
+        `${name}-show`,
         48,
         48,
         whenBroadcastReceived(repaint.id, repaint.name),
         settle,
       ),
-      ...script('back-start', 48, 200, whenFlagClicked(), [hide]),
-      ...script('back-click', 48, 320, whenSpriteClicked(), [
+      ...script(`${name}-start`, 48, 200, whenFlagClicked(), [hide]),
+      ...script(`${name}-click`, 48, 320, whenSpriteClicked(), [
         {
           opcode: 'event_broadcast',
           inputs: { BROADCAST_INPUT: [1, [11, message.name, message.id]] },

@@ -13,7 +13,9 @@ import {
   TITLE_BUTTON_SIZE,
   boardButton,
   startButton,
+  applyButton,
   backButton,
+  importButton,
 } from '../src/title-buttons.ts';
 
 const own = createRequire(import.meta.url)('../package.json') as {
@@ -79,6 +81,7 @@ import {
 } from './blocks.ts';
 import {
   backButtonTarget,
+  screenButtonTarget,
   guideTarget,
   profileQrTarget,
   onBroadcast,
@@ -195,6 +198,7 @@ const MESSAGES = {
   repaint: { id: 'msg-repaint', name: 'repaint' },
   flash: { id: 'msg-flash', name: 'flash' },
   back: { id: 'msg-back', name: 'back' },
+  openImport: { id: 'msg-open-import', name: 'open import' },
   beginBoard: BOARDS.map((board) => ({
     id: `msg-begin-${board.columns}x${board.rows}`,
     name: `begin ${board.columns}x${board.rows}`,
@@ -273,6 +277,16 @@ const IDLE_STATUS = '緑の旗で最初の画面に戻ります';
  */
 const FAILED_STATUS =
   '校正を続けられませんでした。理由を確かめ、「戻る」で最初の画面に戻ってやり直してください';
+
+/**
+ * The screen for a saved profile, before one is read.
+ *
+ * The file has to come through the list's own menu -- a block cannot open a
+ * file dialog -- so the line says where that menu is, and what to press once
+ * the file is in.
+ */
+const IMPORT_STATUS =
+  'profile欄の上で右クリックして「読み込み」を選び、プロファイルのファイルを選んでから「適用する」を押してください';
 
 /** Shown once a profile from a file has been applied and judged. */
 const ADOPTED_STATUS =
@@ -545,6 +559,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // context menu -- the only door in a Scratch project that opens onto a
       // file -- and this reads whatever came through it.
       onBroadcast('do-adopt', 1800, 640, MESSAGES.adopt, [
+        // First, before the import makes the state solved: the watch loop
+        // treats a newly solved state as a calibration that just finished,
+        // with a fanfare and a registration that rewrites the list and turns
+        // the camera off, and it must be able to tell that this is not one.
+        setVariable(VARIABLES.adopted, 'adopted', 'true'),
         // A verdict is about the camera as it is now, and a stopped camera
         // reports nothing to compare against -- every profile would read as
         // undetermined. No preview: nothing is being captured.
@@ -573,7 +592,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // The fit is shown for a profile brought in, and only for one. A
         // profile this session solved fits by construction -- the extension
         // ends a session whose camera settings changed in an error instead.
-        setVariable(VARIABLES.adopted, 'adopted', 'true'),
         setVariable(VARIABLES.status, 'status', ADOPTED_STATUS),
         // The code on screen was drawn from the profile this session solved,
         // and the list now holds a different one. Nothing else would tell the
@@ -585,6 +603,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // The green flag did this, and full screen hides the green flag. The
       // button is offered only when the session has ended, so it is never a
       // second way to stop one: the stop sign is that.
+      // A profile saved earlier, used without calibrating first.
+      //
+      // The list was the only way in, and it is shown only once a session has
+      // produced a profile -- so reading one meant calibrating first, to reach
+      // the screen that holds the list. This screen holds it from the start.
+      onBroadcast('do-open-import', 2280, 1280, MESSAGES.openImport, [
+        setVariable(VARIABLES.adopted, 'adopted', ''),
+        emptyList(PROFILE_LIST.id, PROFILE_LIST.name),
+        setVariable(VARIABLES.status, 'status', IMPORT_STATUS),
+        setVariable(VARIABLES.screen, 'screen', 'import'),
+        switchBackdrop(backdropName),
+        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+      ]),
       onBroadcast('do-back', 1800, 960, MESSAGES.back, [
         extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
           CAMERA_ID: CAPTURE_CAMERA,
@@ -1088,15 +1119,27 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 'announced',
                 readVariable(VARIABLES.ui, 'ui'),
               ),
-              ifThen(equals(readVariable(VARIABLES.ui, 'ui'), 'solved'), [
-                playSound(SOLVED_SOUND),
-                // Not a button. The session just produced the one thing this
-                // app exists to produce, for the camera it was produced from;
-                // there is no version of "no thanks" worth asking about. It
-                // used to say "press p", and pressing p did its work in
-                // silence, which is two mistakes in one line.
-                broadcast(MESSAGES.register.id, MESSAGES.register.name),
-              ]),
+              // Not for a profile read from a file, which is solved as soon as
+              // it is imported: nothing was calibrated, and registering again
+              // would replace the status and stop the camera its fit is judged
+              // against.
+              ifThen(
+                both(
+                  equals(readVariable(VARIABLES.ui, 'ui'), 'solved'),
+                  not(
+                    equals(readVariable(VARIABLES.adopted, 'adopted'), 'true'),
+                  ),
+                ),
+                [
+                  playSound(SOLVED_SOUND),
+                  // Not a button. The session just produced the one thing this
+                  // app exists to produce, for the camera it was produced from;
+                  // there is no version of "no thanks" worth asking about. It
+                  // used to say "press p", and pressing p did its work in
+                  // silence, which is two mistakes in one line.
+                  broadcast(MESSAGES.register.id, MESSAGES.register.name),
+                ],
+              ),
             ],
           ),
           // One pass per frame. Everything above mirrors extension reporters
@@ -1218,7 +1261,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               MESSAGES.back,
               titleButtons().length + 2,
               MESSAGES.repaint,
-              sessionOver(),
+              // On the import screen from the start: nothing runs there that
+              // the stop sign would be the way out of.
+              not(both(not(sessionOver()), not(importing()))),
+            ),
+            screenButtonTarget(
+              'apply',
+              applyButtonCostume(),
+              md5(applyButtonCostume().contents),
+              APPLY_BUTTON_AT,
+              MESSAGES.adopt,
+              titleButtons().length + 4,
+              MESSAGES.repaint,
+              importing(),
             ),
             profileQrTarget(
               profileQrCostume(),
@@ -1391,6 +1446,19 @@ function sessionFailed(): Reporter {
   );
 }
 
+/** The screen that reads a saved profile is up. */
+function importing(): Reporter {
+  return equals(readVariable(VARIABLES.screen, 'screen'), 'import');
+}
+
+/** The apply button's one costume, which the source directory stores as well. */
+export function applyButtonCostume(): { name: string; contents: string } {
+  return { name: 'apply', contents: applyButton() };
+}
+
+/** Beside the way back, under the fit and the reason. */
+const APPLY_BUTTON_AT = toStage(160, 318);
+
 /** A session that has ended, one way or the other, while its screen is up. */
 function sessionOver(): Reporter {
   return both(
@@ -1488,22 +1556,25 @@ function monitorsKey(): Reporter {
 function applyMonitors(): Step[] {
   const capturing = () =>
     equals(readVariable(VARIABLES.screen, 'screen'), 'capture');
+  // The calibration screen, or the one that reads a saved profile: both put
+  // a status, a reason, a fit and the list in the same places.
+  const withProfile = () => not(both(not(capturing()), not(importing())));
   const showWhen = (condition: Reporter, id: string, name: string): Step =>
     ifElse(condition, [showVariable(id, name)], [hideVariable(id, name)]);
   const filled = (id: string, name: string) =>
     not(equals(readVariable(id, name), ''));
   return [
     showWhen(capturing(), VARIABLES.board, 'board'),
-    showWhen(capturing(), VARIABLES.status, 'status'),
+    showWhen(withProfile(), VARIABLES.status, 'status'),
     showWhen(
-      both(capturing(), filled(VARIABLES.reason, 'reason')),
+      both(withProfile(), filled(VARIABLES.reason, 'reason')),
       VARIABLES.reason,
       'reason',
     ),
     showWhen(
       both(
         both(
-          capturing(),
+          withProfile(),
           equals(readVariable(VARIABLES.adopted, 'adopted'), 'true'),
         ),
         filled(VARIABLES.fit, 'プロファイルの適合'),
@@ -1512,9 +1583,20 @@ function applyMonitors(): Step[] {
       'プロファイルの適合',
     ),
     ifElse(
-      both(
-        both(capturing(), not(uiIs('auto'))),
-        greaterThan(lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name), '0'),
+      // Empty on the import screen, because that is where the file goes in.
+      not(
+        both(
+          not(importing()),
+          not(
+            both(
+              both(capturing(), not(uiIs('auto'))),
+              greaterThan(
+                lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name),
+                '0',
+              ),
+            ),
+          ),
+        ),
       ),
       [showList(PROFILE_LIST.id, PROFILE_LIST.name)],
       [hideList(PROFILE_LIST.id, PROFILE_LIST.name)],
@@ -1610,9 +1692,21 @@ export function titleButtons(): ReadonlyArray<{
         size: TITLE_BUTTON_SIZE,
       };
     });
+  const importAt = toStage(
+    TITLE_LAYOUT.importLeft + width / 2,
+    TITLE_LAYOUT.beginRowY,
+  );
   return [
     ...row('board', TITLE_LAYOUT.boardRowY, MESSAGES.showBoard, boardButton),
     ...row('begin', TITLE_LAYOUT.beginRowY, MESSAGES.beginBoard, startButton),
+    {
+      name: 'title-import',
+      costume: { name: 'import', contents: importButton() },
+      x: importAt.x,
+      y: importAt.y,
+      message: MESSAGES.openImport,
+      size: TITLE_BUTTON_SIZE,
+    },
   ];
 }
 

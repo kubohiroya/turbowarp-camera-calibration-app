@@ -19,15 +19,16 @@ The small patterns inside the light squares are ArUco markers, and each one name
 
 ### Using the SB3
 
-| Action                                | What happens                                                                                                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Green flag                            | Opens the first screen, where you choose to show a board on this machine or to calibrate a camera                                                          |
-| 10x7 / 8x6 / 6x5 under "ボードを表示" | Shows that board here. The numbers are squares across by down. Click the stage to return to the first screen                                               |
-| 10x7 / 8x6 / 6x5 under "校正を始める" | Choose the board you are holding: the camera starts and calibration begins                                                                                 |
-| While capturing                       | Nothing to press. Tilt the board as the picture and sounds ask; capture, solve and registration with Camera Source happen by themselves                    |
-| Once calibrated                       | Read the QR code with another device, or right-click the item in the profile list and choose "書き出し" to save a file. "戻る" returns to the first screen |
-| `i`                                   | Applies a profile loaded into the profile list with "読み込み", and shows whether it fits this camera                                                      |
-| Stop sign                             | Stops calibrating and hands the camera back                                                                                                                |
+| Action                                | What happens                                                                                                                                                         |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Green flag                            | Opens the first screen, where you choose to show a board on this machine or to calibrate a camera                                                                    |
+| 10x7 / 8x6 / 6x5 under "ボードを表示" | Shows that board here. The numbers are squares across by down. Click the stage to return to the first screen                                                         |
+| 10x7 / 8x6 / 6x5 under "校正を始める" | Choose the board you are holding: the camera starts and calibration begins                                                                                           |
+| While capturing                       | Nothing to press. Tilt the board as the picture and sounds ask; capture, solve and registration with Camera Source happen by themselves                              |
+| Once calibrated                       | Read the QR code with another device, or right-click the item in the profile list and choose "書き出し" to save a file. "戻る" returns to the first screen           |
+| "読み込む" under "プロファイルを使う" | Uses a saved profile without calibrating. Right-click the profile list, choose "読み込み" to pick the file, then press "適用する" to see whether it fits this camera |
+| `i`                                   | Applies a profile loaded into the profile list, the same as "適用する". Also works on the solved screen                                                              |
+| Stop sign                             | Stops calibrating and hands the camera back                                                                                                                          |
 
 Boards are named by their squares. The calibration block is given inner corners, one fewer in each direction: a 10x7 board has 9x6 inner corners.
 

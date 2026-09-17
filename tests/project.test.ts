@@ -739,7 +739,9 @@ describe('the calibration path', () => {
 
   it('names every board by the squares a person can count on it', () => {
     // "9x6" under a board of ten squares by seven reads as the wrong board.
-    for (const button of titleButtons()) {
+    for (const button of titleButtons().filter(
+      (entry) => entry.name !== 'title-import',
+    )) {
       const board = BOARDS.find((entry) =>
         button.name.endsWith(`-${entry.columns}x${entry.rows}`),
       );
@@ -844,6 +846,108 @@ describe('the calibration path', () => {
     expect(overlaps(fitBox, reasonBox)).toBe(false);
     expect(overlaps(qrBox, listBox)).toBe(false);
     expect(overlaps(backBox, listBox)).toBe(false);
+  });
+
+  it('reads a saved profile without calibrating first', () => {
+    // The list was the only way in, and it appeared only once a session had
+    // produced a profile. The opening screen now leads to a screen that holds
+    // the list from the start.
+    const entry = titleButtons().find(
+      (button) => button.name === 'title-import',
+    );
+    expect(entry?.message.id).toBe('msg-open-import');
+    const svgY = 180 - (entry?.y ?? 0);
+    expect(svgY - 20).toBeGreaterThan(TITLE_LAYOUT.beginLabelY);
+    expect((entry?.x ?? 0) + 240 + 48).toBeLessThanOrEqual(480);
+    const opened = scriptOrder(blocks, 'do-open-import');
+    const written = new Map(
+      opened
+        .filter((block) => block.opcode === 'data_setvariableto')
+        .map((block) => [
+          (block.fields.VARIABLE as [string, string])[0],
+          (block.inputs.VALUE as [number, [number, string]])[1][1],
+        ]),
+    );
+    expect(written.get('screen')).toBe('import');
+    expect(written.get('adopted')).toBe('');
+    expect(opened.map((block) => block.opcode)).toContain(
+      'data_deletealloflist',
+    );
+    // The list, the status, and the way back are on that screen; the apply
+    // button sends the same message as the i key.
+    const rule = Object.entries(blocks).filter(([id]) =>
+      id.startsWith('watch-'),
+    );
+    const listShow = rule.find(
+      ([, block]) =>
+        block.opcode === 'data_showlist' &&
+        JSON.stringify(block.fields).includes('"profile"'),
+    );
+    let parent = listShow?.[1].parent ?? null;
+    while (parent && blocks[parent]?.opcode !== 'control_if_else') {
+      parent = blocks[parent]?.parent ?? null;
+    }
+    expect(
+      texts(blocks, parent ? blocks[parent]?.inputs.CONDITION : undefined),
+    ).toContain('import');
+    const sprite = (name: string) =>
+      enabled.targets.find(
+        (target) => (target as { name?: string }).name === name,
+      ) as unknown as { blocks: Record<string, ScratchBlock> };
+    expect(
+      texts(
+        sprite('back').blocks,
+        sprite('back').blocks['back-show-1']?.inputs.CONDITION,
+      ),
+    ).toContain('import');
+    const click = Object.values(sprite('apply').blocks).find(
+      (block) => block.opcode === 'event_broadcast',
+    );
+    expect(
+      (
+        click?.inputs.BROADCAST_INPUT as [number, [number, string, string]]
+      )[1][2],
+    ).toBe('msg-adopt');
+  });
+
+  it('does not treat an imported profile as a calibration that just finished', () => {
+    // Importing makes the state solved. Read as a fresh solve, that played the
+    // fanfare and registered again -- which rewrote the status and turned off
+    // the camera the fit is judged against.
+    const adopt = scriptOrder(blocks, 'do-adopt');
+    const firstWrite = adopt.find(
+      (block) => block.opcode === 'data_setvariableto',
+    );
+    expect((firstWrite?.fields.VARIABLE as [string, string])[0]).toBe(
+      'adopted',
+    );
+    expect(adopt.findIndex((block) => block === firstWrite)).toBeLessThan(
+      adopt.findIndex(
+        (block) =>
+          block.opcode ===
+          'kubohiroyacameracalibration_importCameraCalibration',
+      ),
+    );
+    const announce = Object.values(blocks).find(
+      (block) =>
+        block.opcode === 'control_if' &&
+        JSON.stringify(block.inputs.SUBSTACK ?? '').length > 0 &&
+        (() => {
+          let at = (block.inputs.SUBSTACK as [number, string] | undefined)?.[1];
+          while (at) {
+            if (
+              blocks[at]?.opcode === 'sound_playuntildone' ||
+              blocks[at]?.opcode === 'sound_play'
+            )
+              return true;
+            at = blocks[at]?.next ?? undefined;
+          }
+          return false;
+        })() &&
+        texts(blocks, block.inputs.CONDITION).includes('solved'),
+    );
+    expect(announce).toBeDefined();
+    expect(texts(blocks, announce?.inputs.CONDITION)).toContain('adopted');
   });
 
   it('takes the old code down when a profile is read from a file', () => {
@@ -1051,7 +1155,9 @@ describe('what the operator is given', () => {
       'title-begin-9x6',
       'title-begin-7x5',
       'title-begin-5x4',
+      'title-import',
       'back',
+      'apply',
       'profile-qr',
       'guide-tilt',
     ]);
