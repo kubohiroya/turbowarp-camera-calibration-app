@@ -85,7 +85,7 @@ notes.append(noteList);
 mount.append(notes);
 
 const plan = element('section', '');
-plan.append(element('h2', '実装予定'));
+plan.append(element('h2', '今後の予定'));
 const list = document.createElement('ul');
 for (const feature of config.plannedFeatures)
   list.append(element('li', feature));
