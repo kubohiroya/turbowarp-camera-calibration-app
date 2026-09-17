@@ -589,13 +589,26 @@ describe('the calibration path', () => {
     // wanted it, for nothing, with no sign to the operator that it happened.
     const order = scriptOrder(blocks, 'do-start').map((block) => block.opcode);
     expect(
-      order.indexOf('kubohiroyacamerasource_startSharedCamera'),
+      order.indexOf('kubohiroyacamerasource_startRequestedSharedCamera'),
     ).toBeGreaterThan(-1);
     expect(
-      order.indexOf('kubohiroyacamerasource_startSharedCamera'),
+      order.indexOf('kubohiroyacamerasource_startRequestedSharedCamera'),
     ).toBeLessThan(
       order.indexOf('kubohiroyacameracalibration_startCameraCalibration'),
     );
+  });
+
+  it('starts the camera the page was opened for', () => {
+    // Several USB cameras of one model calibrate as well as each other, so a
+    // camera the browser picked would produce a profile that fits the wrong
+    // one without anything noticing.
+    for (const name of ['do-start', 'do-adopt']) {
+      const opcodes = scriptOrder(blocks, name).map((block) => block.opcode);
+      expect(opcodes).toContain(
+        'kubohiroyacamerasource_startRequestedSharedCamera',
+      );
+      expect(opcodes).not.toContain('kubohiroyacamerasource_startSharedCamera');
+    }
   });
 
   it('carries no second way to hand the camera back', () => {

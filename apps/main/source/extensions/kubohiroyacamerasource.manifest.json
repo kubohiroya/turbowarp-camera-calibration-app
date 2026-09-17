@@ -3,6 +3,16 @@
   "id": "kubohiroyacamerasource",
   "blocks": [
     {
+      "opcode": "bindCameraProfileToDevice",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
       "opcode": "cameraConditionsGeneration",
       "blockType": "REPORTER",
       "arguments": [
@@ -168,6 +178,16 @@
       ]
     },
     {
+      "opcode": "cameraProfileOnDevice",
+      "blockType": "BOOLEAN",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
       "opcode": "cameraProfileRegistered",
       "blockType": "BOOLEAN",
       "arguments": [
@@ -257,6 +277,16 @@
       ]
     },
     {
+      "opcode": "restoreStoredCameraProfileForDevice",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
       "opcode": "saveCameraProfile",
       "blockType": "COMMAND",
       "arguments": [
@@ -278,6 +308,16 @@
           "id": "PREVIEW_FLIP",
           "type": "STRING",
           "menu": "flips"
+        }
+      ]
+    },
+    {
+      "opcode": "startRequestedSharedCamera",
+      "blockType": "COMMAND",
+      "arguments": [
+        {
+          "id": "CAMERA_ID",
+          "type": "STRING"
         }
       ]
     },

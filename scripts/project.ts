@@ -184,6 +184,24 @@ const QR_DISPLAY = 'kubohiroyaqrdisplay';
 /** The camera this project calibrates. Shared with every other consumer. */
 const CAPTURE_CAMERA = 'default';
 
+/**
+ * Takes the camera the page was opened for, or the browser's choice when it
+ * names none.
+ *
+ * An app driving several USB cameras opens this one for one of them, naming
+ * the device and the size it runs that camera at in the query parameters.
+ * Letting the browser pick would calibrate whichever camera it prefers, and a
+ * camera of the same model produces a profile that fits the other one just as
+ * well -- nothing later would catch the swap. A profile solved at another size
+ * would not fit the app's camera at all. The device is recorded in the
+ * profile either way.
+ */
+function startCaptureCamera(): Step {
+  return extensionStep(CAMERA_SOURCE, 'startRequestedSharedCamera', {
+    CAMERA_ID: CAPTURE_CAMERA,
+  });
+}
+
 /** One message per action, so a click and the key beside it run one script. */
 /**
  * What is left to say, now that nothing is pressed.
@@ -576,9 +594,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // without a session is a camera taken from whoever else wanted it for
       // nothing, and the operator has no way to see that it happened.
       onBroadcast('do-start', 48, 640, MESSAGES.start, [
-        extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
+        startCaptureCamera(),
         extensionStep(CAMERA_SOURCE, 'showCameraPreview', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
@@ -670,9 +686,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // A verdict is about the camera as it is now, and a stopped camera
         // reports nothing to compare against -- every profile would read as
         // undetermined. No preview: nothing is being captured.
-        extensionStep(CAMERA_SOURCE, 'startSharedCamera', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
+        startCaptureCamera(),
         // The file came in one line per item; the reader needs it whole.
         ...listToProfileText(),
         {
