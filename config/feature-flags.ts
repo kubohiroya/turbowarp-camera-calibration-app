@@ -24,5 +24,5 @@ export interface CameraCalibrationAppFeatureFlags {
 
 export const featureFlags: CameraCalibrationAppFeatureFlags = Object.freeze({
   patternDisplayV1: true,
-  captureAndSolveV1: true,
+  captureAndSolveV1: false,
 });
