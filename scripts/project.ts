@@ -1176,8 +1176,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       ...(embedExtensions
         ? [
             backButtonTarget(
-              { name: 'back', contents: backButton() },
-              md5(backButton()),
+              backButtonCostume(),
+              md5(backButtonCostume().contents),
               BACK_BUTTON_AT,
               MESSAGES.back,
               titleButtons().length + 2,
@@ -1239,6 +1239,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
     ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
   };
+}
+
+/** The way back's one costume, which the source directory stores as well. */
+export function backButtonCostume(): { name: string; contents: string } {
+  return { name: 'back', contents: backButton() };
 }
 
 /** A session that has ended, one way or the other, while its screen is up. */
