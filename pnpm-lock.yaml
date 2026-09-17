@@ -22,8 +22,8 @@ importers:
         specifier: 0.14.0
         version: 0.14.0
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.11.0
-        version: 0.11.0
+        specifier: 0.12.0
+        version: 0.12.0
       '@kubohiroya/turbowarp-qr-display':
         specifier: 0.2.0
         version: 0.2.0
@@ -135,8 +135,8 @@ packages:
     resolution: {integrity: sha512-QPf+4zzqadC8t00pTeMjpwCYDryygS1ylUL33tzQtrMnEv1ehWVDs7oLoV2fWMIgFFz1fdCsn+ErYhyh5bnr0Q==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.11.0':
-    resolution: {integrity: sha512-bx91+Vy8109QwLAkM2yvLafrBUvH5C7FU74Ldn/msOL8eImC644g7/EwB9JPSSH4ZXafPKXFq1ADVMISXyCxuQ==}
+  '@kubohiroya/turbowarp-camera-source@0.12.0':
+    resolution: {integrity: sha512-l3feL1mh6UB9ZI+HZJWnFVRY4N/wJwEj4mfPAt3R/98zZ4psKDT0pAorwcbswdjef08pduIJmfoC3uMDryzqzA==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-qr-display@0.2.0':
@@ -1145,7 +1145,7 @@ snapshots:
     dependencies:
       comlink: 4.4.2
 
-  '@kubohiroya/turbowarp-camera-source@0.11.0': {}
+  '@kubohiroya/turbowarp-camera-source@0.12.0': {}
 
   '@kubohiroya/turbowarp-qr-display@0.2.0':
     dependencies:

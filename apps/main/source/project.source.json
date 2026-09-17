@@ -635,7 +635,7 @@
           "y": 640
         },
         "do-start-1": {
-          "opcode": "kubohiroyacamerasource_startSharedCamera",
+          "opcode": "kubohiroyacamerasource_startRequestedSharedCamera",
           "next": "do-start-2",
           "parent": "do-start-0",
           "inputs": {
@@ -1597,7 +1597,7 @@
           "topLevel": false
         },
         "do-adopt-2": {
-          "opcode": "kubohiroyacamerasource_startSharedCamera",
+          "opcode": "kubohiroyacamerasource_startRequestedSharedCamera",
           "next": "do-adopt-3",
           "parent": "do-adopt-1",
           "inputs": {

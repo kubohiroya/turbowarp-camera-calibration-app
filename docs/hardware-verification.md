@@ -69,7 +69,7 @@ pnpm check && pnpm dev
 
 ### P-2 記録シートを用意する
 
-このファイルの末尾の「記録シート」を複製し、実行日、コミット（`git rev-parse --short HEAD`）、埋め込み拡張の版（Camera Source 0.11.0、Camera Calibration 0.14.0、QR Display 0.1.0）、OS、ブラウザ／TurboWarpの版を先に書きます。
+このファイルの末尾の「記録シート」を複製し、実行日、コミット（`git rev-parse --short HEAD`）、埋め込み拡張の版（Camera Source 0.12.0、Camera Calibration 0.14.0、QR Display 0.1.0）、OS、ブラウザ／TurboWarpの版を先に書きます。
 
 ### P-3 SB3を開く
 
@@ -149,7 +149,7 @@ PCの内蔵カメラ（または固定したUSBカメラ）の前で、印刷し
 
 - アプリ commit：
 - SB3のSHA-256（release.json）：
-- 埋め込み拡張：Camera Source 0.11.0 / Camera Calibration 0.14.0 / QR Display 0.1.0
+- 埋め込み拡張：Camera Source 0.12.0 / Camera Calibration 0.14.0 / QR Display 0.1.0
 - OS：
 - ブラウザ／TurboWarp：
 - カメラ（製品名・解像度）：

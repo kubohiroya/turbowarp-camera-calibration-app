@@ -36,6 +36,15 @@
   			}
   		},
   		{
+  			"opcode": "startRequestedSharedCamera",
+  			"blockType": "COMMAND",
+  			"text": "start shared camera [CAMERA_ID] requested by this page",
+  			"arguments": { "CAMERA_ID": {
+  				"type": "STRING",
+  				"defaultValue": "default"
+  			} }
+  		},
+  		{
   			"opcode": "stopSharedCamera",
   			"blockType": "COMMAND",
   			"text": "stop shared camera [CAMERA_ID]",
@@ -301,6 +310,33 @@
   			"opcode": "restoreStoredCameraProfile",
   			"blockType": "COMMAND",
   			"text": "restore stored camera profile for [CAMERA_ID]",
+  			"arguments": { "CAMERA_ID": {
+  				"type": "STRING",
+  				"defaultValue": "default"
+  			} }
+  		},
+  		{
+  			"opcode": "restoreStoredCameraProfileForDevice",
+  			"blockType": "COMMAND",
+  			"text": "restore stored camera profile calibrated on the device of [CAMERA_ID]",
+  			"arguments": { "CAMERA_ID": {
+  				"type": "STRING",
+  				"defaultValue": "default"
+  			} }
+  		},
+  		{
+  			"opcode": "bindCameraProfileToDevice",
+  			"blockType": "COMMAND",
+  			"text": "bind camera profile for [CAMERA_ID] to its current device",
+  			"arguments": { "CAMERA_ID": {
+  				"type": "STRING",
+  				"defaultValue": "default"
+  			} }
+  		},
+  		{
+  			"opcode": "cameraProfileOnDevice",
+  			"blockType": "BOOLEAN",
+  			"text": "camera profile for [CAMERA_ID] belongs to its current device?",
   			"arguments": { "CAMERA_ID": {
   				"type": "STRING",
   				"defaultValue": "default"
@@ -2212,6 +2248,38 @@
   function normalizeId(value, fallback = defaultCameraId) {
   	return String(value ?? "").trim() || fallback;
   }
+  /**
+  * The camera a page was opened for, from its query parameters.
+  *
+  * Returns only what was named, so a page opened without parameters starts a camera exactly as the
+  * plain block does. A size or rate that is not a positive number is ignored rather than guessed.
+  */
+  function requestedCamera(search) {
+  	let parameters;
+  	try {
+  		parameters = new URLSearchParams(search);
+  	} catch {
+  		return {};
+  	}
+  	const deviceId = optionalText(parameters.get("cameraDeviceId"));
+  	const video = {};
+  	if (deviceId) video.deviceId = { exact: deviceId };
+  	const ideal = (name) => {
+  		const value = Number(parameters.get(name) ?? "");
+  		return Number.isFinite(value) && value > 0 ? value : void 0;
+  	};
+  	const width = ideal("cameraWidth");
+  	const height = ideal("cameraHeight");
+  	const frameRate = ideal("cameraFrameRate");
+  	if (width !== void 0) video.width = { ideal: width };
+  	if (height !== void 0) video.height = { ideal: height };
+  	if (frameRate !== void 0) video.frameRate = { ideal: frameRate };
+  	if (Object.keys(video).length === 0) return {};
+  	return {
+  		...deviceId ? { deviceId } : {},
+  		video
+  	};
+  }
   function optionalText(value) {
   	return String(value ?? "").trim();
   }
@@ -2556,7 +2624,77 @@
   	* so trying a candidate that loses never displaces the registered one even for a moment.
   	*/
   	async restoreStoredCameraProfile(args = {}) {
+  		await this.restoreStoredProfile(normalizeId(args.CAMERA_ID), false);
+  	}
+  	/**
+  	* Like `restore stored camera profile`, but only from profiles calibrated on the device the camera
+  	* is running on now.
+  	*
+  	* Compatibility alone cannot tell two cameras of the same model apart: they report the same label
+  	* and the same capture conditions, so either one's calibration reads as `compatible` for the other.
+  	* What differs is the device id, which is scoped to this origin and browser profile. That scope is
+  	* exactly where browser storage lives, so a profile saved here and a camera opened here agree on it
+  	* for as long as the browser keeps both.
+  	*
+  	* A camera that is not running has no device id, and the answer is then `undetermined`. A profile
+  	* brought in from another browser carries another id and is never a candidate; register it with
+  	* the file and `bind camera profile ... to its current device` first.
+  	*/
+  	async restoreStoredCameraProfileForDevice(args = {}) {
+  		await this.restoreStoredProfile(normalizeId(args.CAMERA_ID), true);
+  	}
+  	/**
+  	* Records the device the camera is running on in its registered profile.
+  	*
+  	* For the case where the operator has said which camera a profile belongs to, typically by loading
+  	* a file for it. Only a profile `compatible` with the camera as it is now is bound: a profile that
+  	* does not fit is not made more trustworthy by naming a device in it. A label the camera reports is
+  	* written too when the profile has none; one it already has has been compared and matched.
+  	*/
+  	bindCameraProfileToDevice(args = {}) {
   		const cameraId = normalizeId(args.CAMERA_ID);
+  		const profile = this.profiles.get(cameraId);
+  		if (!profile) return;
+  		const conditions = this.conditionsOf(cameraId);
+  		if (conditions.deviceId.length === 0) return;
+  		if (evaluateProfileCompatibility(profile, conditions).state !== "compatible") return;
+  		const document = JSON.parse(serializeCameraIntrinsicProfile(profile));
+  		const label = profile.device?.label ?? conditions.label;
+  		document["device"] = {
+  			...label === void 0 ? {} : { label },
+  			deviceId: conditions.deviceId
+  		};
+  		this.profiles.register(document);
+  	}
+  	/** Whether the registered profile was calibrated on, or bound to, the device the camera runs on. */
+  	cameraProfileOnDevice(args = {}) {
+  		const cameraId = normalizeId(args.CAMERA_ID);
+  		const deviceId = this.profiles.get(cameraId)?.device?.deviceId;
+  		return deviceId !== void 0 && deviceId.length > 0 && deviceId === this.conditionsOf(cameraId).deviceId;
+  	}
+  	/**
+  	* Starts a camera the way the page's query parameters ask, or as `start shared camera` does when
+  	* they ask nothing.
+  	*
+  	* How one app hands a camera to another it opens on the same origin. An app running several USB
+  	* cameras opens the lens calibration app for one of them, and the calibration has to be solved on
+  	* that device at the size the app will use: a camera the browser picks may be the other camera of
+  	* the same model, and a profile solved at another size is `incompatible`.
+  	*
+  	* `cameraDeviceId` is required exactly. `cameraWidth`, `cameraHeight` and `cameraFrameRate` are
+  	* asked for as `ideal`, the way the opening app asked, so the camera settles on the same mode.
+  	*/
+  	async startRequestedSharedCamera(args = {}) {
+  		const cameraId = normalizeId(args.CAMERA_ID);
+  		if (this.blockLeases.has(cameraId)) return;
+  		const lease = await this.acquireCamera({
+  			owner: "camera-source-block",
+  			cameraId,
+  			...requestedCamera(globalThis.location?.search ?? "")
+  		});
+  		this.blockLeases.set(cameraId, lease);
+  	}
+  	async restoreStoredProfile(cameraId, sameDevice) {
   		let records;
   		try {
   			records = await this.profileStore.list();
@@ -2568,14 +2706,26 @@
   			return;
   		}
   		const conditions = this.conditionsOf(cameraId);
+  		if (sameDevice && conditions.deviceId.length === 0) {
+  			this.storedProfileOutcomes.set(cameraId, {
+  				state: "undetermined",
+  				detail: "The camera is not running, so the device a saved profile was calibrated on cannot be compared."
+  			});
+  			return;
+  		}
   		let incompatible;
   		let undetermined;
+  		let otherDevices = 0;
   		for (const record of [...records].sort(newestFirst)) {
   			const parsed = parseJson(record.document);
   			if (!parsed.ok) continue;
   			const document = rebindCameraId(parsed.value, cameraId);
   			const result = readCameraProfileDocument(document);
   			if (!result.ok) continue;
+  			if (sameDevice && result.profile.device?.deviceId !== conditions.deviceId) {
+  				otherDevices += 1;
+  				continue;
+  			}
   			const report = evaluateProfileCompatibility(result.profile, conditions);
   			if (report.state === "compatible") {
   				this.profiles.register(document);
@@ -2591,7 +2741,7 @@
   		const decisive = incompatible ?? undetermined;
   		this.storedProfileOutcomes.set(cameraId, decisive === void 0 ? {
   			state: "none",
-  			detail: ""
+  			detail: otherDevices === 0 ? "" : `${otherDevices} saved profile(s) were calibrated on other devices and were not considered.`
   		} : {
   			state: decisive.state,
   			detail: compatibilityDetail(decisive)
