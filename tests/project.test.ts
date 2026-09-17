@@ -14,6 +14,7 @@ import {
 } from '../src/checkerboard.ts';
 import { DICT_4X4_50, MARKER_CELLS, markerCells } from '../src/aruco.ts';
 import { featureFlags } from '../config/feature-flags.ts';
+import { guideCostumes } from '../src/guide.ts';
 import type { ScratchBlock } from '../scripts/blocks.ts';
 
 /**
@@ -741,6 +742,35 @@ describe('the capture buttons', () => {
     expect(reads.length).toBeGreaterThan(0);
   });
 
+  it('shows only what the operator needs, and speaks when there is a reason', () => {
+    // The numbers were on screen because they were useful to whoever was
+    // debugging, which is not who is holding the board. What they were read
+    // for -- progress -- is a sound now. What is left is a reason for a
+    // failure, which is worth the space exactly when there is one.
+    const monitors = (
+      project as unknown as {
+        monitors: Array<{ params: { VARIABLE: string }; visible: boolean }>;
+      }
+    ).monitors;
+    const showing = monitors
+      .filter((entry) => entry.visible)
+      .map((entry) => entry.params.VARIABLE);
+    expect(showing).toEqual(['board', 'status']);
+
+    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
+    const toggled = new Set(
+      Object.values(stageBlocks)
+        .filter(
+          (block) =>
+            block.opcode === 'data_showvariable' ||
+            block.opcode === 'data_hidevariable',
+        )
+        .map((block) => (block.fields.VARIABLE as [string, string])[0]),
+    );
+    expect(toggled).toContain('reason');
+    expect(toggled).toContain('fit');
+  });
+
   it('never calls an unchecked profile usable', () => {
     // Three answers, and the third is not a softer no. Camera Source withholds
     // the intrinsics when it cannot decide, so anything warmer here would be
@@ -904,13 +934,41 @@ describe('the capture buttons', () => {
   });
 
   it('gives each button its own sprite and costume', () => {
-    expect(sprites.map((sprite) => sprite.name)).toEqual(
-      strip.map((button) => button.name),
-    );
+    // And one more sprite that is not a button: the tilt guide, which wears
+    // one of four pictures over the camera image.
+    expect(sprites.map((sprite) => sprite.name)).toEqual([
+      ...strip.map((button) => button.name),
+      'guide-tilt',
+    ]);
     for (const sprite of sprites) {
-      expect(sprite.costumes).toHaveLength(1);
+      expect(sprite.costumes.length, sprite.name).toBe(
+        sprite.name === 'guide-tilt' ? 4 : 1,
+      );
       expect(sprite.visible).toBe(false);
     }
+  });
+
+  it('draws the instruction where the operator is already looking', () => {
+    // On the camera picture, translucent, and never a grid: this is the one
+    // drawing in the project that the camera it guides is certainly pointed
+    // at, so a chessboard here would be found and solved against.
+    const guide = sprites.find((sprite) => sprite.name === 'guide-tilt');
+    expect(guide).toBeDefined();
+    for (const costume of guideCostumes()) {
+      expect(costume.contents).not.toMatch(/<rect x="\d+" y="\d+" width="11"/u);
+      expect(costume.contents).not.toContain('#000000');
+    }
+    const effects = Object.values(
+      guide?.blocks as Record<string, ScratchBlock>,
+    ).filter((block) => block.opcode === 'looks_seteffectto');
+    // Ghost to see through it, brightness for the half second when a step
+    // lands -- the one moment something goes right and nothing would move.
+    expect(
+      effects.map((block) => (block.fields.EFFECT as [string, null])[0]),
+    ).toContain('GHOST');
+    expect(
+      effects.map((block) => (block.fields.EFFECT as [string, null])[0]),
+    ).toContain('BRIGHTNESS');
   });
 
   it('draws no complete grid on any button', () => {

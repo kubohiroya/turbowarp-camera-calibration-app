@@ -125,6 +125,36 @@ export function appendToList(
  * hash and a line in every place that counts them; the handle is one chevron
  * and the open state is the same chevron the other way up.
  */
+export function switchCostume(name: string): Step {
+  return {
+    opcode: 'looks_switchcostumeto',
+    inputs: { COSTUME: [1, null] },
+    menus: {
+      COSTUME: {
+        opcode: 'looks_costume',
+        fields: { COSTUME: [name, null] },
+      },
+    },
+  };
+}
+
+/** `ghost` for transparency, `brightness` for the flash. */
+export function setEffect(effect: 'GHOST' | 'BRIGHTNESS', value: number): Step {
+  return {
+    opcode: 'looks_seteffectto',
+    inputs: { VALUE: [1, [4, String(value)]] },
+    fields: { EFFECT: [effect, null] },
+  };
+}
+
+/** Puts a variable's monitor on screen, or takes it off. */
+export function hideVariable(id: string, name: string): Step {
+  return {
+    opcode: 'data_hidevariable',
+    fields: { VARIABLE: variable(id, name) },
+  };
+}
+
 export function pointInDirection(degrees: number): Step {
   return {
     opcode: 'motion_pointindirection',
