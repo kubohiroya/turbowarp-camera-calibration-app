@@ -691,8 +691,12 @@ describe('the calibration path', () => {
     // the code would be.
     expect(condition).toContain('adopted');
     const drawn = Object.values(sprite.blocks).find(
-      (block) => block.opcode === 'kubohiroyaqrdisplay_showQrCode',
+      (block) => block.opcode === 'kubohiroyaqrdisplay_showQrCodeWithin',
     );
+    // Fitted within the box at whole-unit modules, not scaled into it.
+    expect(
+      (drawn?.inputs.SIZE as [number, [number, string]] | undefined)?.[1][1],
+    ).toBe(String(SOLVED_LAYOUT.qr.maxSize));
     // The whole document, line breaks and all. The list holds it a line per
     // item, which is right for the file and wrong for a code.
     const text = drawn?.inputs.TEXT as [number, string, unknown] | undefined;
@@ -777,7 +781,13 @@ describe('the calibration path', () => {
         (target) => (target as { name?: string }).name === name,
       ) as unknown as { x: number; y: number; size: number };
     const qr = sprite('profile-qr');
-    const half = (320 * qr.size) / 100 / 2;
+    // The largest the code can come out: the box it is fitted within, at the
+    // 100% size that keeps its modules whole. One unit of slack for the
+    // whole-unit centre.
+    expect(qr.size).toBe(100);
+    expect(Math.abs(qr.x % 2)).toBe(1);
+    expect(Math.abs(qr.y % 2)).toBe(1);
+    const half = SOLVED_LAYOUT.qr.maxSize / 2 + 1;
     const qrBox = {
       left: qr.x + 240 - half,
       right: qr.x + 240 + half,

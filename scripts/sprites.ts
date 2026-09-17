@@ -299,6 +299,7 @@ export function profileQrTarget(
   when: Reporter,
   text: Reporter,
   extensionId: string,
+  maxSize: number,
 ): Record<string, unknown> {
   const takeOff: Step[] = [
     { opcode: `${extensionId}_hideQrCode`, inputs: {} },
@@ -321,12 +322,18 @@ export function profileQrTarget(
             when,
             [
               {
-                opcode: `${extensionId}_showQrCode`,
+                // Within a size rather than scaled to one: the extension
+                // draws each module a whole number of units, and the sprite
+                // stays at 100% so they stay whole on stage.
+                opcode: `${extensionId}_showQrCodeWithin`,
                 // L, the lowest. A screen does not get scratched or folded,
                 // which is what the higher levels pay for, and a profile is
                 // around 700 bytes: at L the modules stay large enough to read
                 // from arm's length at the size the stage leaves for them.
-                inputs: { LEVEL: [1, [10, 'L']] },
+                inputs: {
+                  LEVEL: [1, [10, 'L']],
+                  SIZE: [1, [4, String(maxSize)]],
+                },
                 reporters: { TEXT: text },
               },
               show,
