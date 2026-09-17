@@ -174,12 +174,43 @@ export function lengthOfList(id: string, name: string): Reporter {
   return { opcode: 'data_lengthoflist', fields: { LIST: list(id, name) } };
 }
 
-/** Everything in the list, run together. What was exported, read back. */
-export function listContents(id: string, name: string): Reporter {
+/** One item of a list, by a position computed at run time. */
+export function itemOfList(
+  id: string,
+  name: string,
+  index: Reporter,
+): Reporter {
   return {
     opcode: 'data_itemoflist',
     fields: { LIST: list(id, name) },
-    inputs: { INDEX: text('1') },
+    reporters: { INDEX: index },
+  };
+}
+
+export function changeVariableBy(id: string, name: string, by: string): Step {
+  return {
+    opcode: 'data_changevariableby',
+    inputs: { VALUE: text(by) },
+    fields: { VARIABLE: variable(id, name) },
+  };
+}
+
+export function repeat(times: Reporter, body: readonly Step[]): Step {
+  return {
+    opcode: 'control_repeat',
+    reporters: { TIMES: times },
+    substack: body,
+  };
+}
+
+export function lengthOf(value: Reporter): Reporter {
+  return { opcode: 'operator_length', reporters: { STRING: value } };
+}
+
+export function letterOf(index: Reporter, value: Reporter): Reporter {
+  return {
+    opcode: 'operator_letter_of',
+    reporters: { LETTER: index, STRING: value },
   };
 }
 

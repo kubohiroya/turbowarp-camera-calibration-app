@@ -654,7 +654,10 @@ describe('the calibration path', () => {
     // reaches the same script, and its fit is judged against the running
     // camera, so for that one the camera stays on.
     const guard = scriptOrder(blocks, 'do-register').find(
-      (block, index) => index > published && block.opcode === 'control_if',
+      (block, index) =>
+        index > published &&
+        block.opcode === 'control_if' &&
+        texts(blocks, block.inputs.CONDITION).includes('adopted'),
     );
     expect(texts(blocks, guard?.inputs.CONDITION)).toContain('adopted');
     const inside: string[] = [];
@@ -690,8 +693,12 @@ describe('the calibration path', () => {
     const drawn = Object.values(sprite.blocks).find(
       (block) => block.opcode === 'kubohiroyaqrdisplay_showQrCode',
     );
+    // The whole document, line breaks and all. The list holds it a line per
+    // item, which is right for the file and wrong for a code.
     const text = drawn?.inputs.TEXT as [number, string, unknown] | undefined;
-    expect(sprite.blocks[text?.[1] ?? '']?.opcode).toBe('data_itemoflist');
+    const reporter = sprite.blocks[text?.[1] ?? ''];
+    expect(reporter?.opcode).toBe('data_variable');
+    expect(reporter?.fields.VARIABLE).toEqual(['profile text', 'profile-text']);
     // Taken off on the flag as well as when the screen changes: the extension
     // restores the costume on a stop, and a flag is a stop.
     expect(
