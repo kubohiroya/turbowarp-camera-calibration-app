@@ -20,11 +20,14 @@ document.title = config.title;
 mount.append(element('h1', config.title), element('p', config.summary));
 const note = element(
   'p',
-  '模様の表示はこのページが、撮影と校正はダウンロードしたSB3が行います。プロファイルの書き出しはまだ動作しません。',
+  'ボードの表示はこのページとSB3の起動画面で、撮影と校正はダウンロードしたSB3で行います。解けたプロファイルは、QRコードで読み取るか、ファイルに書き出して次の端末へ渡せます。',
 );
 note.className = 'note';
 mount.append(note);
-const status = element('section', 'モードを選ぶと予定する操作を表示します。');
+const status = element(
+  'section',
+  'モードを選ぶと、そのモードでできることを表示します。',
+);
 const menuMount = element('section', '');
 mount.append(menuMount, status);
 const errors = createRuntimeMessageIndicator({
@@ -53,7 +56,9 @@ menu.show();
 const download = document.createElement('a');
 download.href = './downloads/app.sb3';
 download.download = `${config.slug}.sb3`;
-download.textContent = '起動確認用SB3をダウンロード';
+download.textContent = featureFlags.captureAndSolveV1
+  ? '校正用SB3をダウンロード'
+  : 'SB3をダウンロード（このビルドには校正が入っていません）';
 mount.append(download);
 const keys = element('section', '');
 keys.append(element('h2', 'SB3の操作'));
@@ -208,11 +213,11 @@ patterns.append(boardList);
 const handover = element('section', '');
 handover.append(element('h3', '校正できたあと — プロファイルの受け渡し'));
 for (const line of [
-  '緑の旗で始まり、停止ボタンで終わります。それ以外に押すものはありません — 撮る・解く・登録まで自動です。板も、かざしたものを見つけます。',
+  '緑の旗で始まり、停止ボタンで終わります。起動画面で手元の板と同じ「校正を始める」を押したあとは、押すものはありません — 撮る・解く・登録まで自動です。',
   '校正が終わると、その場で camera-source に登録されます。',
-  '同時に、ステージ左の profile リストに校正データ（JSON）が入ります。リストを右クリックして「書き出す」で、ファイルとして保存できます。これが消費側アプリへの受け渡し経路です。',
-  '既存のプロファイルを読み込むときは、同じリストを右クリックして「読み込む」でファイルを選び、そのあと i キーを押してください。ここだけは操作が要ります — ファイルを選ぶのは人にしかできないので。',
-  '読み込んだあと、fit の欄がこのカメラに使えるかを言います。「判定できません」は「たぶん使える」ではありません。撮影条件を確かめられなかったという意味で、そのときプロファイルは適用されません。',
+  '同時に、ステージ左の profile リストに校正データ（JSON）が入り、同じ内容がステージ右にQRコードで表示されます。別の端末でQRコードを読み取るか、profile欄の項目上で右クリックして「書き出し」を選び、ファイルとして保存してください。これが消費側アプリへの受け渡し経路です。',
+  '既存のプロファイルを読み込むときは、同じリストを右クリックして「読み込み」でファイルを選び、そのあと i キーを押してください。ここだけは操作が要ります — ファイルを選ぶのは人にしかできないので。',
+  '読み込んだあと、「プロファイルの適合」の欄が、このカメラに「使えます」「合いません」「確かめられません」のどれかを言います。「確かめられません」は「たぶん使える」ではありません。撮影条件を確かめられなかったという意味で、そのときプロファイルは適用されません。',
 ]) {
   handover.append(element('p', line));
 }
