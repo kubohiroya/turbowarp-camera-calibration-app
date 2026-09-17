@@ -3,7 +3,7 @@ import {
   createRuntimeMessageIndicator,
 } from '@kubohiroya/turbowarp-app-shell';
 import config from '../config/app.json';
-import { BOARDS, printedCellMillimetres } from './checkerboard.ts';
+import { BOARDS, printedCellMillimetres } from './board.ts';
 import { boardId, findBoard, patternFile, showPattern } from './pattern.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import './style.css';
