@@ -2,60 +2,93 @@
 
 **English** | [日本語](README.ja.md)
 
-An app that both displays and photographs a checkerboard pattern, producing and exporting a camera lens calibration profile.
+An app that shows a ChArUco board and calibrates a camera against it, producing a lens calibration profile you can carry away as a QR code or a file.
 
 ## What's included
 
-Pattern display and capture. Profile export is not implemented yet.
-
-**The ChArUco board is drawn by the page, not by the SB3.** It needs no camera, no extension and no Scratch, and a page can do what the plan asks of it: print, save a file, report the rendered square size, and never stretch. A fixed-size Scratch stage can do none of those. It also means the capture project contains no ChArUco board artwork at all -- nothing it draws can be mistaken for the target.
-
-- **Page**: three boards to display -- 9x6, 7x5 and 5x4 inner corners. Full screen in place, in a second window for a second screen, saved as SVG, or printed. Scaling is uniform and the remainder is letterboxed.
-- **SB3**: the capture side. One camera, one session; the extensions are embedded at exact pinned versions.
+- **Page**: three boards to display -- 10x7, 8x6 and 6x5 squares (9x6, 7x5 and 5x4 inner corners). Full screen in place, in a second window for a second screen, saved as SVG, or printed at A4. Scaling is uniform and the remainder is letterboxed. The nominal size of one printed square is shown.
+- **SB3**: a title screen that asks what this device is for, a full-stage board display, and an automatic calibration that needs no buttons, ending in a profile shown as a QR code and held in a list you can export.
 - Builds for the SB3 and the distribution page, SHA-256 and size recording, and CI.
+
+The boards are drawn by the camera-calibration extension (`@kubohiroya/turbowarp-camera-calibration/runtime`), not by this app. The board on the screen or the paper and the board the detector looks for come from the same numbers, so they cannot drift apart. [`src/board.ts`](src/board.ts) lists what the app takes from the extension.
 
 The small patterns inside the light squares are ArUco markers, and each one names the corners around it. A board that runs off the edge of the frame therefore still contributes the corners it does show. A plain chessboard contributes nothing unless it is seen whole, because nothing in it says which corner is which -- and **the views where the board reaches the frame edge are the ones that decide the principal point and the distortion**, so this is not a small difference.
 
-### Keys in the SB3
+## Using the SB3
 
-| Key             | What it does                                                     |
-| --------------- | ---------------------------------------------------------------- |
-| `1` / `2` / `3` | Choose the board, before starting                                |
-| `c`             | Start: take the camera, show the preview, open a session         |
-| `s`             | Take one sample. Change angle and distance between them          |
-| `v`             | Solve. Refused below eight samples                               |
-| `p`             | Register with Camera Source, where other extensions will read it |
-| `space`         | Stop: close the session and hand the camera back                 |
+The calibration path is behind the `captureAndSolveV1` flag, which is OFF by default; see [Layout and development](#layout-and-development). With it ON:
 
-Inner corners are what the calibration block is given, and they are one fewer in each direction than the squares. A 9x6 board shows 10x7 squares.
+### Title screen
+
+TurboWarp asks once to run the extensions: Camera Source, Camera Calibration and QR Display are bundled into one, so there is no way to allow one and refuse another and be left with a project that silently does nothing.
+
+The green flag opens a title screen with two rows of buttons. The numbers are squares across by down, which is what a person holding the board can count.
+
+| Button                                                            | This device becomes                                                                                       |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `10x7` / `8x6` / `6x5`                                            | The side that **shows** the board. It fills the stage, undistorted, with nothing on top. Click to go back |
+| **校正を始める** (start calibration) under `10x7` / `8x6` / `6x5` | The side that **calibrates**, looking for that board                                                      |
+
+One device can do both in turn, or two devices can split the roles.
+
+### During calibration
+
+There is nothing to press. The green flag starts and the stop button stops; the shutter, the solve, and registering the result are all automatic.
+
+- **One status line** says what to do next, naming the board: show the board, _this looks like another board_, hold steadier, change position or tilt, keep going, or move closer, further, tilt more, reach the edges.
+- **A tilt guide** is drawn over the preview: the board as an outline with the near edge wider, and an arrow for the direction the kept views reach least. It has no grid in it, because a grid drawn over the camera image is exactly what the detector would find. It is hidden while the extension is solving.
+- **Sounds**, for someone holding a board at arm's length and not looking at the screen:
+  - a chord for each of the 16 progress steps, with a leading note saying which of the four gates it belongs to, and a fanfare when done;
+  - a cue when the tilt direction changes: timbre for the axis (front-back or left-right), rising for near and falling for far;
+  - clicks whose rate, from 2 to 20 a second, follows how much new tilt the current view would add. Sliding the board sideways does not speed them up.
+
+The session finishes when the error on views held back from the fit is within 1.5 px. If the camera's size, zoom, focus, or the camera itself changes before then, it ends in an error instead: "solved" means the profile fits this camera.
+
+### When it is solved
+
+- The preview is hidden and the shared camera stops.
+- The profile is registered with Camera Source, where other extensions in the same runtime read it.
+- The profile JSON is put in the `profile` list and drawn as a **QR code** (error correction L, about 700 bytes) on the right of the stage. Point a phone at it to carry the profile to the next device.
+- To save it as a file, right-click the `profile` list and choose **export**. A block cannot do this: blocks run on a timer, and the browser does not treat that as the person asking.
+- A **Back** button appears (after success or failure only). It stops the camera, clears the session, and returns to the title screen.
+
+### Loading a saved profile
+
+Right-click the `profile` list, choose **import**, pick the file, and press `i`. The app wakes the camera and asks Camera Source whether the profile fits it:
+
+| Answer         | Shown as                                                                        |
+| -------------- | ------------------------------------------------------------------------------- |
+| `compatible`   | Usable with this camera                                                         |
+| `incompatible` | Does not match (capture conditions differ from calibration)                     |
+| `undetermined` | Cannot be confirmed -- and the profile is not applied. This is not a softer yes |
+
+A loaded profile is not drawn as a QR code.
 
 ### Calibrating with it
 
 - **Intrinsic calibration needs no real-world dimensions.** The physical size of a square affects none of fx, fy, cx, cy, or the distortion coefficients; it scales the extrinsic pose only. Real dimensions start to matter in `turbowarp-time-space-sync`'s placement calibration, not here.
-- **Tilt the board.** Fronto-parallel samples alone leave focal length and distance inseparable and the solve degenerate. Sliding the board sideways without tilting it is not enough, and the sample-novelty check does not catch that.
-- **How the pattern is presented decides whether the target is a regular grid at all.** Print at a uniform scale; show it on a display set to 1:1, since televisions apply overscan by default; keep a tablet flat, unrotated and matte. A projector is not recommended: keystone, an off-axis placement, or the projector's own lens distortion all bias the result, and none of them raise the reprojection error.
-- Angle and distance are hard to vary once a camera is mounted on a fixed rig, so calibrate before mounting -- and afterwards only a printed board will do, since a displayed pattern cannot be moved.
-
-## Planned
-
-- Call the calibration blocks of the camera-calibration extension, guiding start, sample capture, solve, cancel, and cleanup.
-- Prompt for shots from varying angles and distances, and show the pose spread and quality of the samples. Do not treat a burst from a single fixed viewpoint as complete.
-- Display the checkerboard full screen, and record the cell dimensions and display conditions. Explain that real-world dimensions are not needed for intrinsic calibration and only matter for placement calibration.
-- Show reprojection error and quality, and validate against images not used in the calibration.
-- Export the intrinsic calibration profile as JSON and hand it to consuming apps as a file. Also support loading an existing profile and checking that it matches the capture conditions.
+- **Tilt the board.** Fronto-parallel samples alone leave focal length and distance inseparable and the solve degenerate. Sliding the board sideways without tilting it is not enough; follow the tilt guide.
+- **How the board is presented decides whether the target is a regular grid at all.** Print at a uniform scale; show it on a display set to 1:1, since televisions apply overscan by default; keep a tablet flat, unrotated and matte. A projector is not recommended: keystone, an off-axis placement, or the projector's own lens distortion all bias the result, and none of them raise the reprojection error.
+- Angle and distance are hard to vary once a camera is mounted on a fixed rig, so calibrate before mounting -- and afterwards only a printed board will do, since a displayed board cannot be moved.
 
 ## Modes
 
-- **Display pattern**: Shows the checkerboard full screen, to be photographed from another PC or camera.
-- **Capture and calibrate**: Photographs the displayed or printed pattern with the camera and solves the lens calibration.
+- **Display pattern**: shows the board full screen on this page, in a second window, or printed, to be photographed by the calibrating camera.
+- **Capture and calibrate**: download the SB3, open it in TurboWarp, and calibrate against the displayed or printed board.
 
 ## Dependencies and responsibilities
 
-- camera-source: camera acquisition, lease, and capture conditions, plus the contract for the intrinsic calibration profile.
-- camera-calibration: ChArUco board extraction and solve. Includes OpenCV.
-- time-space-sync-app / realtime-motion-capture-app / photogrammetry-app: the consumers of the profile. They receive it as a file.
+With `captureAndSolveV1` ON, the SB3 embeds these extensions at exact versions, with integrity, in a fixed order:
 
-The only actual dependency is turbowarp-app-shell 0.2.0 in package.json. The use-case-specific connections above are planned, and do not rely on any unreleased early extension. When one is added, its exact version, artifact hash, API manifest, and evaluation order will be pinned.
+| Extension                                  | Version | Role                                                                                     |
+| ------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
+| `@kubohiroya/turbowarp-camera-source`      | 0.9.1   | Camera acquisition, lease, preview, capture conditions, and the profile contract and fit |
+| `@kubohiroya/turbowarp-camera-calibration` | 0.13.0  | Board drawing and detection, automatic capture and guidance, solve on a Worker (OpenCV)  |
+| `@kubohiroya/turbowarp-qr-display`         | 0.1.0   | Drawing the profile as a QR code                                                         |
+
+The page uses `@kubohiroya/turbowarp-app-shell` 0.2.0 and the board helpers from camera-calibration. The app does not reimplement any of the extensions' algorithms.
+
+The consumers of the profile -- time-space-sync-app, realtime-motion-capture-app and photogrammetry-app -- are meant to receive it as a file or a QR code. None of them reads it yet.
 
 ## Layout and development
 
@@ -69,29 +102,38 @@ pnpm dev
 ```
 
 - `config/app.json`: name, modes, description, and planned work.
-- `config/feature-flags.ts`: experimental feature flags, fixed at startup and OFF by default.
-- `scripts/project.ts`: the source of truth for the startup-check SB3.
+- `config/feature-flags.ts`: feature flags, fixed at startup. `patternDisplayV1` is ON; `captureAndSolveV1` is OFF.
+- `scripts/project.ts`: the source of truth for the SB3.
+- `scripts/extensions.ts`: which extensions are embedded, at which versions.
 - `apps/main/source`: the generated unpacked SB3 sources.
 - `src`: the distribution page built on the shared shell.
 - `public/downloads`: the generated SB3 and release.json.
 - `dist`: build output for the distribution page and downloads.
 
-After changing `project.ts` or the title, run `pnpm source:update` to regenerate the sources. Generated SB3 files and `dist` are not tracked by Git. Archives are produced with sb3-toolchain.
+With `captureAndSolveV1` OFF, the SB3 embeds no extension and is a few kilobytes; its green flag explains that calibration is not in this build and asks for no camera. To build the calibrating SB3, set the flag to `true`, then:
 
-## Staged rollout and acceptance criteria
+```bash
+pnpm source:update
+pnpm check
+```
 
-1. In the related GitHub Issue, settle what to extract from the existing implementation, its dependencies, the DoD, and the rollback path.
-2. Add the use-case-specific path behind a flag that is OFF by default, and replace the existing path with delegation.
-3. Record error, latency, stalls, and recovery in hardware integration testing.
-4. Do not reimplement the core extension's algorithms inside the app.
+After changing `project.ts`, the title, or a flag, run `pnpm source:update` to regenerate the sources. `source:check` (part of `pnpm check`) refuses a flag that was changed without regenerating, so the page and the SB3 cannot disagree. Generated SB3 files and `dist` are not tracked by Git. Archives are produced with sb3-toolchain.
 
-The DoD for the initial scaffold is: `pnpm check` passes, the SB3 updates its state on the green flag, and the distribution page shows the description, mode selection, and SB3 download. Real-device verification of camera-based features has not been performed.
+## Status
 
-## Rollback and task management
+Implemented: board display, save and print on the page; the title screen and full-stage board; one-permission bundle; automatic capture with the status line, tilt guide and sounds; hold-out completion; capture-condition checking; registration with Camera Source; the QR code and list export; import with the three-way fit.
 
-New paths are stopped by turning their flag OFF in `config/feature-flags.ts`, and compatibility reads for the old app path are kept during migration. Turning the initial flags ON does not implement any use-case-specific feature.
+Not yet:
 
-GitHub Issues are the source of truth for progress, recording start/done/blocked. This README is a local draft; nothing has been posted to Issues, pushed, or published.
+- The fit and hold-out errors and sample counts are not shown on screen. The extension reports them; finishing means the hold-out error was within the limit.
+- The consuming apps cannot read a profile yet.
+- Calibration has been checked in TurboWarp with a simulated camera (headless Chromium), including reading the QR code back with jsQR. It has not been verified on real hardware.
+
+Progress is tracked in [Issue #1](https://github.com/kubohiroya/turbowarp-camera-calibration-app/issues/1).
+
+## Rollback
+
+The calibration path is stopped by turning `captureAndSolveV1` OFF in `config/feature-flags.ts` and regenerating. The page's board display does not depend on it.
 
 ## Origin
 
@@ -99,4 +141,4 @@ The shared structure is extracted from the kamishibai (picture-story) app and re
 
 ## License
 
-MPL-2.0. The package is private in its initial state.
+MPL-2.0. The package is private.
