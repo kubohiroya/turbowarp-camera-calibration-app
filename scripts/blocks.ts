@@ -331,6 +331,14 @@ export function multiply(
   return operator('operator_multiply', 'NUM1', 'NUM2', left, right);
 }
 
+/** Rounds to the nearest whole number. */
+export function round(value: Reporter | string | number): Reporter {
+  const settled = typeof value === 'number' ? String(value) : value;
+  return typeof settled === 'string'
+    ? { opcode: 'operator_round', inputs: { NUM: text(settled) } }
+    : { opcode: 'operator_round', inputs: {}, reporters: { NUM: settled } };
+}
+
 export function add(
   left: Reporter | string | number,
   right: Reporter | string | number,
