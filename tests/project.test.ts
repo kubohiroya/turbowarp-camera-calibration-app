@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { backdrops, buttons, createProject, md5 } from '../scripts/project.ts';
+import { backdrops, createProject, md5 } from '../scripts/project.ts';
 import {
   BOARDS,
   MARKER_RATIO,
@@ -301,6 +301,28 @@ describe('the calibration path', () => {
     }
   });
 
+  it('finds the board the operator is holding, and carries its size', () => {
+    // Three sheets, and only the chosen one is looked for -- which used to be
+    // three keys and a line explaining them. Holding the wrong one is not
+    // silence though: the markers are seen and do not make this board, and
+    // that is enough to try the next one.
+    const hunt = scriptOrder(blocks, 'do-hunt');
+    expect(hunt[0]?.opcode).toBe('event_whenbroadcastreceived');
+    const written = Object.values(blocks)
+      .filter((block) => block.opcode === 'data_setvariableto')
+      .map((block) => (block.fields.VARIABLE as [string, string])[0]);
+    // Each hop sets the size along with the counts: a board left with the
+    // previous sheet's millimetres measures a sheet nobody is holding.
+    for (const name of ['board', 'columns', 'rows', 'square', 'marker']) {
+      expect(written.filter((entry) => entry === name).length).toBeGreaterThan(
+        1,
+      );
+    }
+    // And the sizes really differ, or none of this would matter.
+    const sizes = BOARDS.map((board) => printedCellMillimetres(board));
+    expect(new Set(sizes).size).toBe(BOARDS.length);
+  });
+
   it('declares the size the sheet actually prints at', () => {
     // Intrinsic calibration is unaffected -- scale drops out of the fit -- but
     // a board pose is metric, and its distance is wrong by exactly however
@@ -336,33 +358,6 @@ describe('the calibration path', () => {
     const marker = declared.find(([name]) => name === 'marker')?.[1];
     expect(Number(square)).toBeCloseTo(printedCellMillimetres(board) / 1000, 4);
     expect(Number(marker)).toBeCloseTo(Number(square) * MARKER_RATIO, 4);
-  });
-
-  it('carries each board its own printed size', () => {
-    // Choosing a board and leaving the previous board's size behind would have
-    // the session measuring a sheet nobody is holding.
-    const sizes = BOARDS.map((board) => printedCellMillimetres(board));
-    expect(new Set(sizes).size).toBe(BOARDS.length);
-    for (const [index, board] of BOARDS.entries()) {
-      const set = scriptOrder(blocks, `board-${index}`).filter(
-        (block) => block.opcode === 'data_setvariableto',
-      );
-      const written = new Map(
-        set.map((block) => [
-          (block.fields.VARIABLE as [string, string])[0],
-          (block.inputs.VALUE as [number, [number, string]])[1][1],
-        ]),
-      );
-      expect(Number(written.get('square')), `board-${index}`).toBeCloseTo(
-        (sizes[index] ?? 0) / 1000,
-        4,
-      );
-      expect(Number(written.get('marker')), `board-${index}`).toBeCloseTo(
-        Number(written.get('square')) * MARKER_RATIO,
-        4,
-      );
-      expect(Number(written.get('columns'))).toBe(board.columns);
-    }
   });
 
   it('names the board the operator is meant to be holding', () => {
@@ -539,17 +534,20 @@ describe('the calibration path', () => {
     );
   });
 
-  it('hands the camera back when the operator stops', () => {
-    // Resetting the display and leaving the lease held would strand a shared
-    // camera for every other consumer, with nothing on screen to say so. The
-    // extensions release on the red stop button; this is the path that leaves
-    // a session while the project keeps running, and it had to be said here.
-    const order = scriptOrder(blocks, 'do-leave').map((block) => block.opcode);
-    expect(order).toContain(
+  it('carries no second way to hand the camera back', () => {
+    // It used to, and the button and the key for it were two more ways to do
+    // what the red stop button already does: the extension cancels every
+    // session on PROJECT_STOP_ALL, which is proved on its side, not here. A
+    // project that also draws a control for it is offering the operator a
+    // choice between two identical outcomes and charging them a slot on the
+    // screen for it.
+    expect(Object.keys(blocks).some((id) => id.startsWith('do-leave'))).toBe(
+      false,
+    );
+    const used = new Set(Object.values(blocks).map((block) => block.opcode));
+    expect(used).not.toContain(
       'kubohiroyacameracalibration_cancelCameraCalibration',
     );
-    expect(order).toContain('kubohiroyacamerasource_hideCameraPreview');
-    expect(order).toContain('kubohiroyacamerasource_stopSharedCamera');
   });
 
   it('asks for the board the operator selected, not a fixed one', () => {
@@ -562,23 +560,6 @@ describe('the calibration path', () => {
       expect(input[0], name).toBe(3);
       expect(blocks[input[1]]?.opcode, name).toBe('data_variable');
     }
-  });
-
-  it('gives every board a key that sets both counts together', () => {
-    // Setting the columns without the rows would ask for a board nobody is
-    // holding, and the finder reports that as "board not found".
-    BOARDS.forEach((board, index) => {
-      const order = scriptOrder(blocks, `board-${index}`);
-      const written = order
-        .filter((block) => block.opcode === 'data_setvariableto')
-        .map((block) => (block.fields.VARIABLE as [string, string])[1]);
-      expect(written).toContain('columns');
-      expect(written).toContain('rows');
-      expect((order[0]?.fields.KEY_OPTION as [string, null])[0]).toBe(
-        String(index + 1),
-      );
-      expect(board.columns).toBeGreaterThan(0);
-    });
   });
 
   it('carries no extension block when the extensions are not embedded', () => {
@@ -612,7 +593,7 @@ function scriptOrder(
   return order;
 }
 
-describe('the capture buttons', () => {
+describe('what the operator is given', () => {
   const project = createProject('Test', { embedExtensions: true });
   const stage = project.targets[0] as StageTarget;
   const sprites = project.targets.filter(
@@ -623,77 +604,6 @@ describe('the capture buttons', () => {
     costumes: unknown[];
     blocks: Record<string, ScratchBlock>;
   }>;
-  const strip = buttons();
-
-  /** The states the stage's watch loop can put in `ui`. */
-  const STATES = [
-    'idle',
-    'auto',
-    'ready',
-    'ready+',
-    'solved',
-    'error',
-    'busy',
-  ] as const;
-
-  /**
-   * Reads a button's visibility condition the way the VM would.
-   *
-   * The conditions are block trees, so this walks them rather than duplicating
-   * the rule -- a second copy of the table is the thing this test exists to
-   * prevent.
-   */
-  function visible(condition: unknown, ui: string, panel: string): boolean {
-    const node = condition as {
-      opcode: string;
-      inputs?: Record<string, unknown>;
-      booleans?: Record<string, unknown>;
-      reporters?: Record<string, unknown>;
-      fields?: Record<string, unknown>;
-    };
-    switch (node.opcode) {
-      case 'operator_and':
-        return (
-          visible(node.booleans?.OPERAND1, ui, panel) &&
-          visible(node.booleans?.OPERAND2, ui, panel)
-        );
-      case 'operator_or':
-        return (
-          visible(node.booleans?.OPERAND1, ui, panel) ||
-          visible(node.booleans?.OPERAND2, ui, panel)
-        );
-      case 'operator_not':
-        return !visible(node.booleans?.OPERAND, ui, panel);
-      case 'operator_equals': {
-        const named = node.reporters?.OPERAND1 as
-          { fields?: { VARIABLE?: [string, string] } } | undefined;
-        const which = named?.fields?.VARIABLE?.[1];
-        const literal = (
-          node.inputs?.OPERAND2 as [number, [number, string]]
-        )[1][1];
-        return (which === 'ui' ? ui : panel) === literal;
-      }
-      default:
-        throw new Error(`unhandled condition ${node.opcode}`);
-    }
-  }
-
-  function shownIn(ui: string, panel = 'open'): string[] {
-    return strip
-      .filter(
-        (button) =>
-          !button.visibleWhen || visible(button.visibleWhen, ui, panel),
-      )
-      .map((button) => button.name);
-  }
-
-  it('offers solve only once a solve would be accepted', () => {
-    // Eight samples is the fewest the extension solves from. Offering it below
-    // that earns the operator a refusal for doing the obvious thing, and says
-    // nothing about how many more are needed.
-    expect(shownIn('ready')).not.toContain('btn-solve');
-    expect(shownIn('ready+')).toContain('btn-solve');
-  });
 
   it('offers no button for the thing that is not a decision', () => {
     // Registering the profile with Camera Source used to be a button, and a
@@ -701,9 +611,9 @@ describe('the capture buttons', () => {
     // has just produced the one document this app exists to produce, for the
     // camera it was produced from: there is no version of "no thanks" worth
     // asking about. It happens when the solve lands.
-    for (const ui of STATES) {
-      expect(shownIn(ui)).not.toContain('btn-register');
-    }
+    // There are no buttons at all now, so there is certainly not one for
+    // this.
+    expect(sprites.map((sprite) => sprite.name)).toEqual(['guide-tilt']);
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
     const solved = Object.values(stageBlocks).filter(
       (block) => block.opcode === 'event_broadcast',
@@ -789,105 +699,6 @@ describe('the capture buttons', () => {
     expect(messages).toContain('このカメラに使えます');
   });
 
-  it('never offers a sample outside a live session', () => {
-    for (const ui of STATES) {
-      expect(shownIn(ui).includes('btn-sample')).toBe(
-        ui === 'ready' || ui === 'ready+',
-      );
-    }
-  });
-
-  it('offers nothing to press for what is already happening', () => {
-    // While the shutter watches, sampling and solving are not choices: one is
-    // being done several times a second, and the other follows on its own.
-    // What is left is a way to take the shutter back.
-    expect(shownIn('auto')).toEqual([
-      'btn-restart',
-      'btn-manual',
-      'btn-leave',
-      'btn-handle',
-    ]);
-  });
-
-  it('offers the take-back only while the shutter has it', () => {
-    for (const ui of STATES) {
-      expect(shownIn(ui).includes('btn-manual')).toBe(ui === 'auto');
-    }
-  });
-
-  it('shows start or restart, never both', () => {
-    for (const ui of STATES) {
-      const shown = shownIn(ui);
-      expect(shown.includes('btn-start') && shown.includes('btn-restart')).toBe(
-        false,
-      );
-    }
-  });
-
-  it('keeps the strip to four actions at once', () => {
-    // The whole reason for the state table. Six action buttons exist; the
-    // operator is holding a board and looking at a camera picture, not reading
-    // a palette. Four is the widest state, `ready+`, where restarting,
-    // sampling, solving and leaving are all things to do. The handle is not
-    // counted: it is how the strip opens, not something to choose.
-    for (const ui of STATES) {
-      const actions = shownIn(ui).filter(
-        (name) => name !== 'btn-handle' && name !== 'indicator-working',
-      );
-      expect(actions.length, ui).toBeLessThanOrEqual(4);
-    }
-  });
-
-  it('shows nothing but the working mark while an operation runs', () => {
-    // Also stops a second press landing on an operation already in flight.
-    expect(shownIn('busy')).toEqual(['indicator-working', 'btn-handle']);
-  });
-
-  it('leaves only the handle when the strip is closed', () => {
-    for (const ui of STATES) {
-      const shown = shownIn(ui, 'closed');
-      expect(
-        shown.filter(
-          (name) => name !== 'btn-handle' && name !== 'indicator-working',
-        ),
-      ).toEqual([]);
-    }
-  });
-
-  it('sends every click somewhere the stage is listening', () => {
-    // A button whose message nobody receives looks identical to one that works.
-    const received = new Set(
-      Object.values(stage.blocks as Record<string, ScratchBlock>)
-        .filter((block) => block.opcode === 'event_whenbroadcastreceived')
-        .map((block) => (block.fields.BROADCAST_OPTION as [string, string])[1]),
-    );
-    for (const button of strip) {
-      if (!button.broadcast) continue;
-      expect(received, button.name).toContain(button.broadcast.id);
-    }
-  });
-
-  it('polls from one place, not from every sprite', () => {
-    // Eight sprites each running their own `forever` called show or hide on
-    // every frame, and scratch-vm requests a redraw from each of those calls
-    // whether or not anything changed -- which ends the sequencer's pass over
-    // the threads for that frame. The stage derives the answer, so the stage
-    // is the one that says when it changed.
-    for (const sprite of sprites) {
-      const loops = Object.values(sprite.blocks).filter(
-        (block) => block.opcode === 'control_forever',
-      );
-      expect(loops, sprite.name).toHaveLength(0);
-    }
-    // The stage may keep more than one loop -- mirroring reporters and pacing
-    // a sound want different intervals -- but each has to give the frame back,
-    // which the next test is about.
-    const stageLoops = Object.values(
-      stage.blocks as Record<string, ScratchBlock>,
-    ).filter((block) => block.opcode === 'control_forever');
-    expect(stageLoops.length).toBeGreaterThan(0);
-  });
-
   it('gives the frame back on every pass of the watch loop', () => {
     // A `forever` whose body never asks to wait is re-entered by the sequencer
     // until the frame's work budget is gone. Measured in TurboWarp against
@@ -921,33 +732,6 @@ describe('the capture buttons', () => {
     }
   });
 
-  it('settles every button at the green flag as well as on the message', () => {
-    // The flag does not send the repaint message. Without its own start script
-    // a button would keep whatever visibility the project was saved with.
-    for (const sprite of sprites) {
-      const hats = Object.values(sprite.blocks)
-        .filter((block) => block.topLevel)
-        .map((block) => block.opcode);
-      expect(hats, sprite.name).toContain('event_whenflagclicked');
-      expect(hats, sprite.name).toContain('event_whenbroadcastreceived');
-    }
-  });
-
-  it('gives each button its own sprite and costume', () => {
-    // And one more sprite that is not a button: the tilt guide, which wears
-    // one of four pictures over the camera image.
-    expect(sprites.map((sprite) => sprite.name)).toEqual([
-      ...strip.map((button) => button.name),
-      'guide-tilt',
-    ]);
-    for (const sprite of sprites) {
-      expect(sprite.costumes.length, sprite.name).toBe(
-        sprite.name === 'guide-tilt' ? 4 : 1,
-      );
-      expect(sprite.visible).toBe(false);
-    }
-  });
-
   it('draws the instruction where the operator is already looking', () => {
     // On the camera picture, translucent, and never a grid: this is the one
     // drawing in the project that the camera it guides is certainly pointed
@@ -969,19 +753,5 @@ describe('the capture buttons', () => {
     expect(
       effects.map((block) => (block.fields.EFFECT as [string, null])[0]),
     ).toContain('BRIGHTNESS');
-  });
-
-  it('draws no complete grid on any button', () => {
-    // A drawing of the target is a thing the detector can find, and the one
-    // arrangement where that matters -- a camera pointed at the screen running
-    // this -- is also the one where the mistake is invisible: the solve
-    // succeeds, against the wrong board.
-    for (const button of strip) {
-      const darkSquares = (
-        button.costume.contents.match(/<rect x="\d+" y="\d+" width="11"/gu) ??
-        []
-      ).length;
-      expect(darkSquares, button.name).toBeLessThan(4);
-    }
   });
 });
