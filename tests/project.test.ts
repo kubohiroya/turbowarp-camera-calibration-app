@@ -836,6 +836,18 @@ describe('the calibration path', () => {
     // Measured in TurboWarp with the longest texts: the undetermined verdict
     // is 44 pixels tall, a three-part capture-condition reason 64. The
     // allowances here are larger, for fonts that set a little bigger.
+    // Two lines of errors measured 210 by 44 pixels in TurboWarp.
+    const errorsEntry = monitors.find((monitor) => monitor.id === 'errors');
+    expect(errorsEntry).toBeDefined();
+    const errorsBox = {
+      left: errorsEntry?.x ?? 0,
+      top: errorsEntry?.y ?? 0,
+      right: (errorsEntry?.x ?? 0) + 215,
+      bottom: (errorsEntry?.y ?? 0) + 50,
+    };
+    for (const other of [qrBox, backBox, listBox, status]) {
+      expect(overlaps(errorsBox, other)).toBe(false);
+    }
     const fitBox = placed('fit', 0, 60);
     const reasonBox = placed('reason', 0, 80);
     for (const box of [fitBox, reasonBox]) {
@@ -948,6 +960,73 @@ describe('the calibration path', () => {
     );
     expect(announce).toBeDefined();
     expect(texts(blocks, announce?.inputs.CONDITION)).toContain('adopted');
+  });
+
+  it('shows both errors a solved profile is judged by', () => {
+    // The session ends on the error over views the fit never saw, and the
+    // screen showed neither that nor the fit error it is compared with.
+    const errorsWrite = Object.values(blocks).find(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[1] === 'errors',
+    );
+    expect(errorsWrite).toBeDefined();
+    const read = (id: string | undefined): string[] => {
+      const block = id ? blocks[id] : undefined;
+      if (!block) return [];
+      return [
+        block.opcode,
+        ...Object.values(block.fields).flatMap((field) =>
+          Array.isArray(field) && typeof field[0] === 'string'
+            ? [field[0]]
+            : [],
+        ),
+        ...Object.values(block.inputs).flatMap((input) =>
+          Array.isArray(input)
+            ? input
+                .slice(1)
+                .flatMap((slot) =>
+                  typeof slot === 'string'
+                    ? read(slot)
+                    : Array.isArray(slot)
+                      ? slot.filter((x): x is string => typeof x === 'string')
+                      : [],
+                )
+            : [],
+        ),
+      ];
+    };
+    const value = errorsWrite?.inputs.VALUE as [number, string] | undefined;
+    const parts = read(value?.[1]);
+    expect(parts).toContain('error px');
+    expect(parts).toContain('holdout px');
+    expect(parts).toContain('holdout count');
+    expect(parts).toContain('operator_round');
+    expect(parts.some((part) => part.includes('使っていない'))).toBe(true);
+    const mirrored = Object.values(blocks).map((block) => block.opcode);
+    expect(mirrored).toContain(
+      'kubohiroyacameracalibration_cameraCalibrationHoldoutErrorPx',
+    );
+    expect(mirrored).toContain(
+      'kubohiroyacameracalibration_cameraCalibrationHoldoutSampleCount',
+    );
+    // Only for a profile this session solved.
+    const show = Object.entries(blocks).find(
+      ([id, block]) =>
+        id.startsWith('watch-') &&
+        block.opcode === 'data_showvariable' &&
+        JSON.stringify(block.fields).includes('"errors"'),
+    );
+    let parent = show?.[1].parent ?? null;
+    while (parent && blocks[parent]?.opcode !== 'control_if_else') {
+      parent = blocks[parent]?.parent ?? null;
+    }
+    const condition = texts(
+      blocks,
+      parent ? blocks[parent]?.inputs.CONDITION : undefined,
+    );
+    expect(condition).toContain('solved');
+    expect(condition).toContain('adopted');
   });
 
   it('takes the old code down when a profile is read from a file', () => {

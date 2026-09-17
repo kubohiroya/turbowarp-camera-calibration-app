@@ -52,6 +52,8 @@ import {
   add,
   appendToList,
   divide,
+  round,
+  subtract,
   emptyList,
   ifElse,
   ifThen,
@@ -237,6 +239,9 @@ const VARIABLES = {
   samples: 'samples',
   quality: 'quality',
   reprojection: 'reprojection',
+  holdout: 'holdout',
+  holdoutCount: 'holdout-count',
+  errors: 'errors',
   code: 'code',
   reason: 'reason',
   camera: 'camera',
@@ -794,6 +799,32 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               { CAMERA_ID: CAPTURE_CAMERA },
             ),
           ),
+          // The error over views the fit never saw, and how many there were.
+          // The fit error alone says the answer reproduces its own views, which
+          // an overfitted answer also does; this is the number the session was
+          // allowed to end on.
+          setVariableFrom(
+            VARIABLES.holdout,
+            'holdout px',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationHoldoutErrorPx',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          setVariableFrom(
+            VARIABLES.holdoutCount,
+            'holdout count',
+            extensionReporter(
+              CAMERA_CALIBRATION,
+              'cameraCalibrationHoldoutSampleCount',
+              { CAMERA_ID: CAPTURE_CAMERA },
+            ),
+          ),
+          // Both, side by side, in the words of the question they answer: how
+          // well it fits the views it was made from, and how well it predicts
+          // the ones it was not. Two lines, rounded to hundredths of a pixel.
+          setVariableFrom(VARIABLES.errors, '誤差', errorsText()),
           // The refusal code, not the state. "sample-too-similar" is the one
           // the operator needs to see, and it is the one a state reporter
           // hides: the session goes straight back to ready.
@@ -1195,6 +1226,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.samples]: ['samples', 0],
                 [VARIABLES.quality]: ['quality', 0],
                 [VARIABLES.reprojection]: ['error px', 0],
+                [VARIABLES.holdout]: ['holdout px', 0],
+                [VARIABLES.holdoutCount]: ['holdout count', 0],
+                [VARIABLES.errors]: ['誤差', ''],
                 [VARIABLES.code]: ['code', ''],
                 [VARIABLES.reason]: ['reason', ''],
                 [VARIABLES.camera]: ['camera', ''],
@@ -1365,6 +1399,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             monitor(VARIABLES.reprojection, 'error px', 10, 154, 0, false),
             monitor(VARIABLES.code, 'code', 10, 178, '', false),
             monitor(VARIABLES.camera, 'camera', 10, 202, '', false),
+            monitor(
+              VARIABLES.errors,
+              '誤差',
+              SOLVED_LAYOUT.errors.x,
+              SOLVED_LAYOUT.errors.y,
+              '',
+              false,
+            ),
             // Placed, not left to TurboWarp, which put it over the status.
             {
               id: PROFILE_LIST.id,
@@ -1399,6 +1441,35 @@ export function createProject(title: string, options: ProjectOptions = {}) {
 /** The way back's one costume, which the source directory stores as well. */
 export function backButtonCostume(): { name: string; contents: string } {
   return { name: 'back', contents: backButton() };
+}
+
+/**
+ * The two errors a solved profile is judged by, as two lines:
+ * `使った 18枚 0.42 px` and `使っていない 4枚 0.51 px`.
+ */
+function errorsText(): Reporter {
+  const hundredths = (value: Reporter) =>
+    divide(round(multiply(value, 100)), 100);
+  const held = readVariable(VARIABLES.holdoutCount, 'holdout count');
+  return join(
+    join('使った ', subtract(readVariable(VARIABLES.samples, 'samples'), held)),
+    join(
+      join('枚 ', hundredths(readVariable(VARIABLES.reprojection, 'error px'))),
+      join(
+        ' px\n使っていない ',
+        join(
+          held,
+          join(
+            '枚 ',
+            join(
+              hundredths(readVariable(VARIABLES.holdout, 'holdout px')),
+              ' px',
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /** The shutter has a set worth solving and is working out the answer. */
@@ -1492,7 +1563,10 @@ export function profileQrCostume(): { name: string; contents: string } {
  */
 export const SOLVED_LAYOUT = {
   statusBottom: 96,
-  list: { x: 5, y: 102, width: 100, height: 170 },
+  // One profile at a time, so a short list is enough, and the errors go
+  // under it: two lines, about 210 pixels wide, clear of the code at 224.
+  list: { x: 5, y: 102, width: 100, height: 110 },
+  errors: { x: 5, y: 220 },
   back: { centreX: 55, centreY: 318, width: 96, height: 40 },
   // A sprite size, not a pixel size. TurboWarp draws the code at a power of
   // two and shrinks it to this, which leaves the modules on uneven pixel
@@ -1581,6 +1655,16 @@ function applyMonitors(): Step[] {
       ),
       VARIABLES.fit,
       'プロファイルの適合',
+    ),
+    // For a profile this session solved. One read from a file carries no
+    // held-out views to report.
+    showWhen(
+      both(
+        both(capturing(), uiIs('solved')),
+        not(equals(readVariable(VARIABLES.adopted, 'adopted'), 'true')),
+      ),
+      VARIABLES.errors,
+      '誤差',
     ),
     ifElse(
       // Empty on the import screen, because that is where the file goes in.
