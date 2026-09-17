@@ -26,7 +26,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run source:check && pnpm run test && pnpm run build",
-    "template:init": "node scripts/init-app.ts"
+    "template:init": "node scripts/init-app.ts",
+    "profile:read": "node scripts/read-profile.ts"
   },
   "dependencies": {
     "@kubohiroya/turbowarp-app-shell": "0.2.0"
