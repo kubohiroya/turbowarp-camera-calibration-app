@@ -40,8 +40,13 @@ export function boardButton(columns: number, rows: number): string {
   return button(`${columns}x${rows}`, PLATE, EDGE);
 }
 
-export function startButton(): string {
-  return button('校正を始める', GO, GO_EDGE, 160);
+/**
+ * Start calibrating against a named board. Green, and labelled by the board,
+ * so the row reads as "calibrate with this one" rather than a second row of
+ * the display buttons.
+ */
+export function startButton(columns: number, rows: number): string {
+  return button(`${columns}x${rows}`, GO, GO_EDGE);
 }
 
 export const TITLE_BUTTON_SIZE = { width: WIDTH, height: HEIGHT };
