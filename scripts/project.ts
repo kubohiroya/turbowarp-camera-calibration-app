@@ -5,6 +5,12 @@ import {
   MARKER_RATIO,
   printedCellMillimetres,
 } from '../src/checkerboard.ts';
+import {
+  fanfareName,
+  fanfareRate,
+  fanfareSampleCount,
+  fanfareWav,
+} from '../src/fanfare.ts';
 import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
   both,
@@ -18,6 +24,7 @@ import {
   ifElse,
   ifThen,
   join,
+  playSound,
   not,
   readVariable,
   script,
@@ -184,6 +191,7 @@ const VARIABLES = {
   panel: 'panel',
   painted: 'painted',
   translated: 'translated',
+  announced: 'announced',
   board: 'board',
   columns: 'columns',
   rows: 'rows',
@@ -246,11 +254,21 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
     ),
   ],
   ['hold-steadier', 'ぶれています。少し止めるか、近づけてください'],
-  ['move-or-tilt', '同じ見え方です。動かすか傾けてください'],
-  ['tilt-more', '傾けてください。横にずらすだけでは解けません'],
+  ['move-or-tilt', '同じ見え方です。位置を変えるか、傾け方を変えてください'],
+  // The one instruction people get wrong, so it says what does not work as
+  // well as what does. Sliding the board keeps every view the same shape, and
+  // a set of same-shaped views cannot separate focal length from distance.
+  [
+    'tilt-more',
+    '板を手前や奥に傾けてください。上下左右にずらすだけでは、何枚撮っても解けません',
+  ],
   ['keep-going', 'そのまま、角度と距離を変えながら続けてください'],
+  // Not "keep going": more of the same is the thing that is not working.
+  [
+    'vary-more',
+    '見え方が似すぎています。カメラに近づける・遠ざける、大きく傾ける、画面の端に寄せる、を試してください',
+  ],
   ['solving', '計算しています'],
-  ['limit-reached', '上限まで撮りました。vで解いてください'],
   ['complete', '完了しました。pでcamera-sourceへ登録できます'],
 ];
 
@@ -352,6 +370,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             ),
             setVariable(VARIABLES.painted, 'painted', ''),
             setVariable(VARIABLES.translated, 'translated', ''),
+            setVariable(VARIABLES.announced, 'announced', ''),
             setVariable(VARIABLES.ui, 'ui', 'idle'),
             setVariable(VARIABLES.state, 'state', 'idle'),
             // Closed to begin with. The strip sits over the camera picture,
@@ -753,6 +772,31 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
             ],
           ),
+          // Said out loud, once, when it becomes true.
+          //
+          // The operator is holding a board at arm's length and moving it,
+          // which is the posture in which a message appearing somewhere is
+          // least likely to be read. Keyed on `ui` alone rather than on the
+          // repaint key, so opening the strip afterwards does not play it
+          // again.
+          ifThen(
+            not(
+              equals(
+                readVariable(VARIABLES.ui, 'ui'),
+                readVariable(VARIABLES.announced, 'announced'),
+              ),
+            ),
+            [
+              setVariableFrom(
+                VARIABLES.announced,
+                'announced',
+                readVariable(VARIABLES.ui, 'ui'),
+              ),
+              ifThen(equals(readVariable(VARIABLES.ui, 'ui'), 'solved'), [
+                playSound(fanfareName),
+              ]),
+            ],
+          ),
           // One pass per frame. Everything above mirrors extension reporters
           // into variables so the monitors can show them, and a monitor is
           // read by a person: thirty times a second is already more than that
@@ -789,6 +833,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             ? {
                 [VARIABLES.painted]: ['painted', ''],
                 [VARIABLES.translated]: ['translated', ''],
+                [VARIABLES.announced]: ['announced', ''],
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
@@ -827,7 +872,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             rotationCenterY: 180,
           };
         }),
-        sounds: [],
+        sounds: embedExtensions ? [fanfareSound()] : [],
         volume: 100,
         layerOrder: 0,
         tempo: 60,
@@ -875,6 +920,25 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       ]),
     ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
+  };
+}
+
+/** The stage's one sound, described the way an SB3 describes sounds. */
+export function fanfare(): { name: string; bytes: Uint8Array } {
+  return { name: fanfareName, bytes: fanfareWav() };
+}
+
+function fanfareSound() {
+  const bytes = fanfareWav();
+  const assetId = createHash('md5').update(bytes).digest('hex');
+  return {
+    assetId,
+    name: fanfareName,
+    dataFormat: 'wav',
+    format: '',
+    rate: fanfareRate,
+    sampleCount: fanfareSampleCount(),
+    md5ext: `${assetId}.wav`,
   };
 }
 

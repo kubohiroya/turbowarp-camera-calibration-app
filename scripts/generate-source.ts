@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { backdrops, buttons, createProject, md5 } from './project.ts';
+import { backdrops, buttons, createProject, fanfare, md5 } from './project.ts';
+import { createHash } from 'node:crypto';
 import {
   EMBEDS_EXTENSIONS,
   EXTENSION_PINS,
@@ -21,6 +22,15 @@ const assets = [
   ...costume,
   file: `${md5(costume.contents)}.svg`,
 }));
+// The sound the finish makes, in the build that can reach a finish.
+const sounds = EMBEDS_EXTENSIONS
+  ? [
+      {
+        bytes: fanfare().bytes,
+        file: `${createHash('md5').update(fanfare().bytes).digest('hex')}.wav`,
+      },
+    ]
+  : [];
 const files = new Map<string, string>([
   [
     'apps/main/source/project.source.json',
@@ -38,7 +48,11 @@ const files = new Map<string, string>([
         project: 'project.source.json',
         embeddedExtensions: 'embedded-extensions.json',
         assetsDirectory: 'assets',
-        archiveEntries: ['project.json', ...assets.map((asset) => asset.file)],
+        archiveEntries: [
+          'project.json',
+          ...assets.map((asset) => asset.file),
+          ...sounds.map((sound) => sound.file),
+        ],
       },
       null,
       2,
@@ -58,6 +72,13 @@ for (const extension of extensions) {
     extension.manifest.toString('utf8'),
   );
 }
+// The one asset that is not text. Kept apart because comparing it as a string
+// would decode bytes that are not characters, and a difference in what does
+// not decode would be reported as no difference at all.
+const binaries = new Map<string, Uint8Array>(
+  sounds.map((sound) => [`apps/main/source/assets/${sound.file}`, sound.bytes]),
+);
+
 const write = process.argv.includes('--write');
 for (const [path, contents] of files) {
   const url = new URL(path, root);
@@ -68,6 +89,19 @@ for (const [path, contents] of files) {
     throw new Error(`${path} is stale; run pnpm source:update.`);
   }
 }
+for (const [path, bytes] of binaries) {
+  const url = new URL(path, root);
+  if (write) {
+    await mkdir(new URL('.', url), { recursive: true });
+    await writeFile(url, bytes);
+  } else {
+    const found = await readFile(url).catch(() => undefined);
+    if (!found || !found.equals(Buffer.from(bytes))) {
+      throw new Error(`${path} is stale; run pnpm source:update.`);
+    }
+  }
+}
+
 // An extension file left behind when the calibration path is switched off is
 // still committed, still validated, and still looks like part of the project --
 // while nothing lists it. The toolchain reports it as an extra file rather than
@@ -99,7 +133,10 @@ if (strayExtensions.length > 0) {
 // SB3 by archiveEntries drift, and still look like part of the project.
 const assetDirectory = new URL('apps/main/source/assets/', root);
 await mkdir(assetDirectory, { recursive: true });
-const expected = new Set(assets.map((asset) => asset.file));
+const expected = new Set([
+  ...assets.map((asset) => asset.file),
+  ...sounds.map((sound) => sound.file),
+]);
 const orphans = (await readdir(assetDirectory)).filter(
   (name) => !expected.has(name),
 );

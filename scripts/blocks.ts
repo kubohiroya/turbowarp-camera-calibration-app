@@ -92,6 +92,26 @@ export function showVariable(id: string, name: string): Step {
   };
 }
 
+/**
+ * Starts a sound and carries on.
+ *
+ * Not `sound_playuntildone`: the script that reaches this is the watch loop,
+ * and a loop that stops for six hundred milliseconds stops mirroring the
+ * reporters for six hundred milliseconds.
+ */
+export function playSound(name: string): Step {
+  return {
+    opcode: 'sound_play',
+    inputs: { SOUND_MENU: [1, null] },
+    menus: {
+      SOUND_MENU: {
+        opcode: 'sound_sounds_menu',
+        fields: { SOUND_MENU: [name, null] },
+      },
+    },
+  };
+}
+
 export function switchBackdrop(name: string): Step {
   return {
     opcode: 'looks_switchbackdropto',
