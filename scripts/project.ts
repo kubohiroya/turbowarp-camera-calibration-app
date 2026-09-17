@@ -266,6 +266,19 @@ const EXPORT_STATUS =
 const IDLE_STATUS = '緑の旗で最初の画面に戻ります';
 
 /**
+ * Shown when a session cannot go on: it failed, or the shutter stopped on a
+ * frame that no longer matches the session. Whatever guidance was on the line
+ * before is about a session that is not running, and would ask the operator to
+ * keep moving a board nobody is looking at. The reason is on its own line.
+ */
+const FAILED_STATUS =
+  '校正を続けられませんでした。理由を確かめ、「戻る」で最初の画面に戻ってやり直してください';
+
+/** Shown once a profile from a file has been applied and judged. */
+const ADOPTED_STATUS =
+  'ファイルのプロファイルを読み込みました。このカメラに使えるかを下に表示します';
+
+/**
  * The guidance codes, as something to do.
  *
  * Instructions rather than the codes themselves: the person reading this is
@@ -548,6 +561,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // profile this session solved fits by construction -- the extension
         // ends a session whose camera settings changed in an error instead.
         setVariable(VARIABLES.adopted, 'adopted', 'true'),
+        setVariable(VARIABLES.status, 'status', ADOPTED_STATUS),
+        // The code on screen was drawn from the profile this session solved,
+        // and the list now holds a different one. Nothing else would tell the
+        // sprite to look again: `ui` was solved before and is solved after.
+        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
       ]),
       // Back to the opening screen once a session is over, solved or failed.
       //
@@ -637,6 +655,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             setVariable(VARIABLES.translated, 'translated', ''),
             setVariable(VARIABLES.status, 'status', ''),
             setVariable(VARIABLES.adopted, 'adopted', ''),
+            // A new session's screen shows its own profile or none. The last
+            // one was registered and could be exported while its screen was up.
+            emptyList(PROFILE_LIST.id, PROFILE_LIST.name),
             setVariable(VARIABLES.screen, 'screen', 'capture'),
             switchBackdrop(backdropName),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
@@ -1023,6 +1044,17 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ...applyMonitors(),
             ],
           ),
+          // A session that cannot go on says so, once, in place of guidance
+          // about a session that is no longer running.
+          ifThen(
+            both(
+              sessionFailed(),
+              not(
+                equals(readVariable(VARIABLES.status, 'status'), FAILED_STATUS),
+              ),
+            ),
+            [setVariable(VARIABLES.status, 'status', FAILED_STATUS)],
+          ),
           // Said out loud, once, when it becomes true.
           //
           // The operator is holding a board at arm's length and moving it,
@@ -1242,8 +1274,24 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             // the progress they were being read for is now a sound, and what
             // is left of them is a reason for a failure, which is worth the
             // space exactly when there is one.
-            monitor(VARIABLES.reason, 'reason', 10, 58, '', false),
-            monitor(VARIABLES.fit, 'プロファイルの適合', 10, 82, '', false),
+            // Below the status, which wraps onto three lines on the solved
+            // screen; at 58 and 82 these were drawn over it.
+            monitor(
+              VARIABLES.reason,
+              'reason',
+              SOLVED_LAYOUT.reason.x,
+              SOLVED_LAYOUT.reason.y,
+              '',
+              false,
+            ),
+            monitor(
+              VARIABLES.fit,
+              'プロファイルの適合',
+              SOLVED_LAYOUT.fit.x,
+              SOLVED_LAYOUT.fit.y,
+              '',
+              false,
+            ),
             monitor(VARIABLES.samples, 'samples', 10, 106, 0, false),
             monitor(VARIABLES.quality, 'quality', 10, 130, 0, false),
             monitor(VARIABLES.reprojection, 'error px', 10, 154, 0, false),
@@ -1299,8 +1347,34 @@ function paintKey(): Reporter {
     readVariable(VARIABLES.ui, 'ui'),
     join(
       readVariable(VARIABLES.panel, 'panel'),
-      join(readVariable(VARIABLES.turn, 'turn'), solving()),
+      join(
+        readVariable(VARIABLES.turn, 'turn'),
+        join(solving(), equals(readVariable(VARIABLES.reason, 'reason'), '')),
+      ),
     ),
+  );
+}
+
+/**
+ * The shutter stopped on a frame that no longer matches the session -- a new
+ * resolution, another camera -- and left the session waiting rather than
+ * failed. Nothing will move it on: the automatic capture is off and there is
+ * nothing to press. Told apart from the moment between opening a session and
+ * handing it the shutter, which is also `ready` without automatic capture, by
+ * the reason, which only a refusal writes.
+ */
+function stalled(): Reporter {
+  return both(
+    not(both(not(uiIs('ready')), not(uiIs('ready+')))),
+    not(equals(readVariable(VARIABLES.reason, 'reason'), '')),
+  );
+}
+
+/** A session that cannot go on, while its screen is up. */
+function sessionFailed(): Reporter {
+  return both(
+    equals(readVariable(VARIABLES.screen, 'screen'), 'capture'),
+    not(both(not(uiIs('error')), not(stalled()))),
   );
 }
 
@@ -1308,7 +1382,7 @@ function paintKey(): Reporter {
 function sessionOver(): Reporter {
   return both(
     equals(readVariable(VARIABLES.screen, 'screen'), 'capture'),
-    not(both(not(uiIs('solved')), not(uiIs('error')))),
+    not(both(not(uiIs('solved')), not(sessionFailed()))),
   );
 }
 
@@ -1344,6 +1418,11 @@ export const SOLVED_LAYOUT = {
   // widths; read back from the stage with jsQR, 79 decoded at pixel ratios 1,
   // 1.5, 2 and 3, and every size near it failed at more of them.
   qr: { right: 475, top: 104, spriteSize: 79 },
+  // Where the QR code would be. The fit is shown only for a profile brought
+  // in from a file, and that profile gets no code, so the two never share
+  // the space. The reason goes under it: a failed import can leave both up.
+  fit: { x: 112, y: 102 },
+  reason: { x: 112, y: 170 },
 } as const;
 
 const PROFILE_QR_SIZE = SOLVED_LAYOUT.qr.spriteSize;
