@@ -64,4 +64,17 @@ export function backButton(): string {
   return button('戻る', PLATE, EDGE);
 }
 
+/**
+ * Opens the screen for a profile saved earlier, with no calibration first.
+ * Blue like the display buttons: it produces nothing new.
+ */
+export function importButton(): string {
+  return button('読み込む', PLATE, EDGE);
+}
+
+/** Applies the profile read into the list. Green: it is the step that acts. */
+export function applyButton(): string {
+  return button('適用する', GO, GO_EDGE);
+}
+
 export const TITLE_BUTTON_SIZE = { width: WIDTH, height: HEIGHT };

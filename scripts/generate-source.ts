@@ -1,6 +1,7 @@
 import { guideCostumes } from '../src/guide.ts';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import {
+  applyButtonCostume,
   backButtonCostume,
   profileQrCostume,
   backdrops,
@@ -28,6 +29,8 @@ const assets = [
   ...(EMBEDS_EXTENSIONS ? titleButtons().map((button) => button.costume) : []),
   // The way back, once a session is over.
   ...(EMBEDS_EXTENSIONS ? [backButtonCostume()] : []),
+  // Applying a profile read on the import screen.
+  ...(EMBEDS_EXTENSIONS ? [applyButtonCostume()] : []),
   // What the QR code's sprite wears when no code is up.
   ...(EMBEDS_EXTENSIONS ? [profileQrCostume()] : []),
   // The tilt guide's four pictures, which live on one sprite over the preview.
