@@ -56,15 +56,16 @@ download.download = `${config.slug}.sb3`;
 download.textContent = '起動確認用SB3をダウンロード';
 mount.append(download);
 const keys = element('section', '');
-keys.append(element('h2', 'SB3の操作（撮影して校正する側）'));
+keys.append(element('h2', 'SB3の操作'));
 const keyList = document.createElement('ul');
 for (const line of [
-  '1 / 2 / 3 … 使う板を選ぶ（内側コーナー 9x6 / 7x5 / 5x4）。撮影を始める前に選びます',
-  'c … 撮影を始める。カメラ取得・preview・校正セッション開始を一度に行います',
-  's … 1枚撮る。撮るたびに角度と距離を変えてください',
-  'v … solve。8枚以上ないと拒否されます',
-  'p … camera-source へ登録。以後そのプロジェクトの他の拡張がこの値を使います',
-  'space … やめる。セッションを畳み、カメラを他の利用者へ返します',
+  '緑の旗 … 最初の画面を開きます。ここで、この端末に板を表示するか、カメラを校正するかを選びます',
+  '「ボードを表示」の 10x7 / 8x6 / 6x5 … この端末に板を出します。数字は横×縦のマスの数です。画面をクリックすると最初の画面に戻ります',
+  '「校正を始める」の 10x7 / 8x6 / 6x5 … 手元の板と同じものを押すと、カメラが起動して校正が始まります',
+  '撮影中 … 押すものはありません。画面の絵と音の案内に従って板を傾けてください。撮影・計算・camera-source への登録まで自動で進みます',
+  '校正できたら … 画面のQRコードを別の端末で読み取るか、profile欄の項目上で右クリックして「書き出し」を選び、ファイルに保存します。「戻る」で最初の画面に戻ります',
+  'i … profile欄に「読み込み」したプロファイルを適用し、このカメラに使えるかを表示します',
+  '停止ボタン … 校正をやめ、カメラを返します',
 ])
   keyList.append(element('li', line));
 keys.append(keyList);
@@ -97,7 +98,7 @@ buildList.append(
   element(
     'li',
     featureFlags.captureAndSolveV1
-      ? '撮影と校正：有効。camera-source と camera-calibration をSB3へ埋め込んでいます（OpenCVを含むため数MBになります）。'
+      ? '撮影と校正：有効。camera-source・camera-calibration・qr-display をSB3へ埋め込んでいます（OpenCVを含むため数MBになります）。'
       : '撮影と校正：無効。拡張はSB3へ埋め込んでいないので、配布物は数KBです。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update すると、拡張を埋め込んだSB3が作られます。',
   ),
 );

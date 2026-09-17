@@ -10,24 +10,25 @@ Pattern display and capture. Profile export is not implemented yet.
 
 **The ChArUco board is drawn by the page, not by the SB3.** It needs no camera, no extension and no Scratch, and a page can do what the plan asks of it: print, save a file, report the rendered square size, and never stretch. A fixed-size Scratch stage can do none of those. It also means the capture project contains no ChArUco board artwork at all -- nothing it draws can be mistaken for the target.
 
-- **Page**: three boards to display -- 9x6, 7x5 and 5x4 inner corners. Full screen in place, in a second window for a second screen, saved as SVG, or printed. Scaling is uniform and the remainder is letterboxed.
+- **Page**: three boards to display -- 10x7, 8x6 and 6x5 squares. Full screen in place, in a second window for a second screen, saved as SVG, or printed. Scaling is uniform and the remainder is letterboxed.
 - **SB3**: the capture side. One camera, one session; the extensions are embedded at exact pinned versions.
 - Builds for the SB3 and the distribution page, SHA-256 and size recording, and CI.
 
 The small patterns inside the light squares are ArUco markers, and each one names the corners around it. A board that runs off the edge of the frame therefore still contributes the corners it does show. A plain chessboard contributes nothing unless it is seen whole, because nothing in it says which corner is which -- and **the views where the board reaches the frame edge are the ones that decide the principal point and the distortion**, so this is not a small difference.
 
-### Keys in the SB3
+### Using the SB3
 
-| Key             | What it does                                                     |
-| --------------- | ---------------------------------------------------------------- |
-| `1` / `2` / `3` | Choose the board, before starting                                |
-| `c`             | Start: take the camera, show the preview, open a session         |
-| `s`             | Take one sample. Change angle and distance between them          |
-| `v`             | Solve. Refused below eight samples                               |
-| `p`             | Register with Camera Source, where other extensions will read it |
-| `space`         | Stop: close the session and hand the camera back                 |
+| Action                                | What happens                                                                                                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Green flag                            | Opens the first screen, where you choose to show a board on this machine or to calibrate a camera                                                          |
+| 10x7 / 8x6 / 6x5 under "ボードを表示" | Shows that board here. The numbers are squares across by down. Click the stage to return to the first screen                                               |
+| 10x7 / 8x6 / 6x5 under "校正を始める" | Choose the board you are holding: the camera starts and calibration begins                                                                                 |
+| While capturing                       | Nothing to press. Tilt the board as the picture and sounds ask; capture, solve and registration with Camera Source happen by themselves                    |
+| Once calibrated                       | Read the QR code with another device, or right-click the item in the profile list and choose "書き出し" to save a file. "戻る" returns to the first screen |
+| `i`                                   | Applies a profile loaded into the profile list with "読み込み", and shows whether it fits this camera                                                      |
+| Stop sign                             | Stops calibrating and hands the camera back                                                                                                                |
 
-Inner corners are what the calibration block is given, and they are one fewer in each direction than the squares. A 9x6 board shows 10x7 squares.
+Boards are named by their squares. The calibration block is given inner corners, one fewer in each direction: a 10x7 board has 9x6 inner corners.
 
 ### Calibrating with it
 
