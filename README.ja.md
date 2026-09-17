@@ -51,8 +51,7 @@ ChArUcoボードの表示と撮影を1つのアプリで行い、カメラのレ
 ## 今後の予定
 
 - 解けた画面（QRコード・戻る）と、ファイルの書き出し・読み込みを実機で確かめる。
-- 確認が済んだら captureAndSolveV1 を既定ONにし、配布するSB3に校正を入れる。
-- 消費側アプリ（time-space-sync-app など）で、QRコード（turbowarp-jsqr）またはファイルからプロファイルを読み込む。
+- 消費側アプリ（time-space-sync-app、photogrammetry-app）で、QRコード（turbowarp-jsqr）またはファイルからプロファイルを読み込む。realtime-motion-capture-app の camera app は読み込み済み。
 
 ## モード
 
@@ -80,7 +79,7 @@ pnpm dev
 ```
 
 - config/app.json：名前、モード、説明、今後の予定。
-- config/feature-flags.ts：起動時固定・既定OFFの実験機能フラグ。
+- config/feature-flags.ts：起動時固定の機能フラグ。撮影と校正（captureAndSolveV1）は既定ON。
 - scripts/project.ts：起動確認用SB3の正本。
 - apps/main/source：生成した展開済みSB3ソース。
 - src：共通シェルを利用する配布ページ。
@@ -100,7 +99,7 @@ pnpm check は、生成したSB3ソース、プロジェクトのスクリプト
 
 ## ロールバックとタスク管理
 
-SB3の校正は config/feature-flags.ts の captureAndSolveV1 の後ろにあり、既定はOFFです。OFFのSB3は機能拡張を埋め込まず、ページでのボード表示はそのまま使えます。
+SB3の校正は config/feature-flags.ts の captureAndSolveV1 の後ろにあり、既定はONです。配布ページからダウンロードするSB3で、そのまま校正できます（約2.7MB）。問題があれば captureAndSolveV1 を false にして pnpm source:update で再生成すると、機能拡張を埋め込まない数KBのSB3に戻り、ページでのボード表示はそのまま使えます。
 
 GitHub Issues とプルリクエストを進捗の正本とします。
 

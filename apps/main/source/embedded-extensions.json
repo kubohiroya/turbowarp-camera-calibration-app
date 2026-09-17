@@ -1,4 +1,76 @@
 {
   "formatVersion": 1,
-  "extensions": []
+  "extensionBundles": [
+    {
+      "id": "calibrationbundle",
+      "members": [
+        "kubohiroyacamerasource",
+        "kubohiroyacameracalibration",
+        "kubohiroyaqrdisplay"
+      ],
+      "name": "Camera Calibration Bundle"
+    }
+  ],
+  "extensions": [
+    {
+      "id": "kubohiroyacamerasource",
+      "path": "extensions/kubohiroyacamerasource.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64",
+      "source": {
+        "provider": "npm",
+        "package": "@kubohiroya/turbowarp-camera-source",
+        "version": "0.11.0",
+        "artifact": "dist/camera-source.js",
+        "integrity": "sha256-iBB4aYm69rX8tatdmUhZCOcHAmmXrN/CC3kfDrbK8Cs=",
+        "apiManifest": {
+          "artifact": "dist/extension-manifest.json",
+          "path": "extensions/kubohiroyacamerasource.manifest.json",
+          "formatVersion": 1,
+          "integrity": "sha256-e0SOHu0ozzEbUou69Jmy4Y0RPWi9bPyD3H3+jTyUV+k="
+        }
+      }
+    },
+    {
+      "id": "kubohiroyacameracalibration",
+      "path": "extensions/kubohiroyacameracalibration.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64",
+      "source": {
+        "provider": "npm",
+        "package": "@kubohiroya/turbowarp-camera-calibration",
+        "version": "0.14.0",
+        "artifact": "dist/camera-calibration.js",
+        "integrity": "sha256-NsqV6v1prKWqVba3xKM0SFS8anyDge6G0uD35EyTZCY=",
+        "apiManifest": {
+          "artifact": "dist/extension-manifest.json",
+          "path": "extensions/kubohiroyacameracalibration.manifest.json",
+          "formatVersion": 1,
+          "integrity": "sha256-n6dwGwwuBzMcxK4h+NtQ9pAa0ukPeRAs9bk4ATtVmII="
+        }
+      }
+    },
+    {
+      "id": "kubohiroyaqrdisplay",
+      "path": "extensions/kubohiroyaqrdisplay.js",
+      "mediaType": "text/javascript",
+      "parameters": [],
+      "encoding": "base64",
+      "source": {
+        "provider": "npm",
+        "package": "@kubohiroya/turbowarp-qr-display",
+        "version": "0.2.0",
+        "artifact": "dist/qr-display.js",
+        "integrity": "sha256-4CsnYQb6Y/PHXVpwYdAa2E6YsolfDzBniNUb/kMwlf0=",
+        "apiManifest": {
+          "artifact": "dist/extension-manifest.json",
+          "path": "extensions/kubohiroyaqrdisplay.manifest.json",
+          "formatVersion": 1,
+          "integrity": "sha256-awwh5yE+o6lOrD9/o1oLDV9Yu+J4plXrCm5J8gacb8Y="
+        }
+      }
+    }
+  ]
 }

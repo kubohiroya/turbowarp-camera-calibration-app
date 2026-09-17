@@ -36,29 +36,18 @@ H-61（モーションキャプチャのcamera appで読む）とH-62（ROSの�
 
 ## 事前準備
 
-### P-1 校正ビルドを作る
+### P-1 SB3を用意する
 
-配布されているSB3には、まだ校正が入っていません（`captureAndSolveV1`が既定OFF）。確認用の校正ビルドを手元で作ります。
+既定のビルドには校正が入っています（`captureAndSolveV1`は既定ON）。
 
 ```bash
 cd /Users/hiroya/Dev/turbowarp-camera-calibration-app
 git checkout main && git pull
 pnpm install --frozen-lockfile
+pnpm check && pnpm dev
 ```
 
-`config/feature-flags.ts`の`captureAndSolveV1`を`true`に書き換えてから、次を実行します。
-
-```bash
-pnpm source:update && pnpm check && pnpm dev
-```
-
-`pnpm dev`が示すURLを開き、「校正用SB3をダウンロード」でSB3を保存します。`public/downloads/release.json`のSHA-256を記録シートに写します。
-
-確認が終わったら、フラグの変更と生成ソースを元に戻します（コミットしません）。
-
-```bash
-git checkout config/feature-flags.ts apps/main/source
-```
+`pnpm dev`が示すURLを開き、「校正用SB3をダウンロード」でSB3を保存します。`public/downloads/release.json`のサイズとSHA-256を記録シートに写します（約2.7MB）。
 
 ### P-2 記録シートを用意する
 

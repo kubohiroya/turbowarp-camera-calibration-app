@@ -25,7 +25,9 @@ const bytes = await readFile(output);
 // ceiling is not a size target; it is there to catch the archive growing by
 // something nobody meant to add -- a second copy of an extension, an asset that
 // should have been pruned -- which otherwise shows up only as a slow download.
-// Measured: 3,220 B with the calibration path off, 2,221,684 B with it on.
+// Measured: 3,220 B with the calibration path off, 2,221,684 B with it on;
+// 2,702,883 B once the QR code, board display and error lines were added
+// (Camera Source 0.11.0, Camera Calibration 0.14.0, QR Display 0.1.0).
 // The ceiling was 8 MiB when the extension carried a 10.9 MB OpenCV; against a
 // 2.2 MB archive that would no longer catch anything.
 const MAXIMUM_BYTES = 4 * 1024 * 1024;

@@ -16,8 +16,7 @@
   ],
   "plannedFeatures": [
     "実機で、解けた画面（QRコード・戻る）とファイルの書き出し・読み込みを確かめる。",
-    "確認が済んだら captureAndSolveV1 を既定ONにし、配布するSB3に校正を入れる。",
-    "消費側アプリ（time-space-sync-app など）で、QRコード（turbowarp-jsqr）またはファイルからプロファイルを読み込む。"
+    "消費側アプリ（time-space-sync-app、photogrammetry-app）で、QRコード（turbowarp-jsqr）またはファイルからプロファイルを読み込む。"
   ],
   "plannedDependencies": [
     "camera-source：カメラ取得・lease・撮影条件と、内部校正プロファイルの契約・登録先。",
