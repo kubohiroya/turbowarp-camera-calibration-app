@@ -13,7 +13,7 @@ import {
   layout,
   patternSvg,
   type BoardSpec,
-} from './checkerboard.ts';
+} from './board.ts';
 
 /** CSS defines its pixel as 1/96 inch, which is what this conversion means. */
 const MM_PER_CSS_PIXEL = 25.4 / 96;

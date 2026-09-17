@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 import { createHash } from 'node:crypto';
-import {
-  BOARDS,
-  MARKER_RATIO,
-  printedCellMillimetres,
-} from '../src/checkerboard.ts';
+import { BOARDS, MARKER_RATIO, printedCellMillimetres } from '../src/board.ts';
 import {
   CLICK_SOUND,
   DIRECTION_SOUNDS,
