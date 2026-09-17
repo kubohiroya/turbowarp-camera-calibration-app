@@ -21,6 +21,7 @@ import {
   show,
   whenBroadcastReceived,
   whenFlagClicked,
+  whenSpriteClicked,
   setEffect,
   switchCostume,
   waitSeconds,
@@ -120,6 +121,76 @@ export function guideTarget(
     visible: false,
     x: 0,
     y: 20,
+    size: 100,
+    direction: 90,
+    draggable: false,
+    rotationStyle: 'all around',
+  };
+}
+
+/**
+ * A control on the opening screen.
+ *
+ * Shown only while that screen is up. Buttons were taken out of this project
+ * because the ones it had sat over the camera picture, offering to do what was
+ * already being done, to someone holding a board in both hands. These are on a
+ * still screen, before anything has started, in front of someone at a keyboard
+ * who has a decision to make.
+ */
+export function titleButtonTarget(
+  name: string,
+  costume: { name: string; contents: string },
+  assetId: string,
+  at: { x: number; y: number },
+  message: { id: string; name: string },
+  layerOrder: number,
+  repaint: { id: string; name: string },
+  size: { width: number; height: number },
+): Record<string, unknown> {
+  const settle = [
+    ifElse(equals(readVariable('screen', 'screen'), 'title'), [show], [hide]),
+  ];
+  return {
+    isStage: false,
+    name,
+    variables: {},
+    lists: {},
+    broadcasts: {},
+    blocks: {
+      ...script(
+        `${name}-show`,
+        48,
+        48,
+        whenBroadcastReceived(repaint.id, repaint.name),
+        settle,
+      ),
+      ...script(`${name}-start`, 48, 200, whenFlagClicked(), settle),
+      ...script(`${name}-click`, 48, 320, whenSpriteClicked(), [
+        {
+          opcode: 'event_broadcast',
+          inputs: { BROADCAST_INPUT: [1, [11, message.name, message.id]] },
+        },
+      ]),
+    },
+    comments: {},
+    currentCostume: 0,
+    costumes: [
+      {
+        assetId,
+        name: costume.name,
+        bitmapResolution: 1,
+        md5ext: `${assetId}.svg`,
+        dataFormat: 'svg',
+        rotationCenterX: size.width / 2,
+        rotationCenterY: size.height / 2,
+      },
+    ],
+    sounds: [],
+    volume: 100,
+    layerOrder,
+    visible: false,
+    x: at.x,
+    y: at.y,
     size: 100,
     direction: 90,
     draggable: false,

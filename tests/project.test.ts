@@ -47,25 +47,47 @@ describe('the project', () => {
     }
   });
 
-  it('draws no chessboard anywhere', () => {
-    // The board lives in the page, not here. Nothing this project puts on
-    // screen should be findable as the target, because the one arrangement
-    // where that matters -- a camera pointed at the screen running this -- is
-    // also the one where the mistake is invisible: the solve succeeds.
-    const costumes = backdrops();
-    expect(costumes).toHaveLength(1);
-    for (const costume of costumes) {
-      expect(costume.contents).not.toContain('#000000');
+  it('draws a chessboard only where one is meant to be found', () => {
+    const calibrating = createProject('Test', { embedExtensions: true });
+    // It used to draw none at all, and that was right while the board lived
+    // in the page: a grid anywhere else is one a camera pointed at this screen
+    // could find, and the mistake is invisible because the solve succeeds.
+    //
+    // The display role brings one back, deliberately, as a backdrop. The rule
+    // that remains is that nothing else carries one -- not a button, not the
+    // tilt guide, not the opening screen. Those are on screen while a camera
+    // is looking at it, and none of them is the target.
+    const named = (
+      calibrating.targets[0] as unknown as { costumes: Array<{ name: string }> }
+    ).costumes.map((costume) => costume.name);
+    expect(named).toContain('stage');
+    expect(named).toContain('title');
+    for (const board of BOARDS) {
+      expect(named).toContain(`board-${board.columns}x${board.rows}`);
     }
-    expect(stage.costumes.map((costume) => costume.name)).toEqual(['stage']);
+    const hasGrid = (svg: string) =>
+      (svg.match(/<rect x="\d+" y="\d+" width="11"/gu) ?? []).length > 3;
+    const plain = backdrops(true).find((entry) => entry.name === 'stage');
+    expect(hasGrid(plain?.contents ?? '')).toBe(false);
+    const title = backdrops(true).find((entry) => entry.name === 'title');
+    expect(hasGrid(title?.contents ?? '')).toBe(false);
+    const sprites = calibrating.targets.filter((target) => !target.isStage);
+    expect(sprites.length).toBeGreaterThan(0);
   });
 
   it('names each costume by the bytes it actually holds', () => {
+    const calibrating = createProject('Test', { embedExtensions: true });
     // The SB3 stores assets under the MD5 of their contents. A name that no
     // longer matches loads as a missing costume, and the stage goes blank with
     // no error a user can act on.
-    for (const costume of stage.costumes) {
-      const source = backdrops().find((entry) => entry.name === costume.name);
+    const drawn = backdrops(true);
+    for (const costume of (
+      calibrating.targets[0] as unknown as {
+        costumes: Array<{ name: string; assetId: string; md5ext: string }>;
+      }
+    ).costumes) {
+      const source = drawn.find((entry) => entry.name === costume.name);
+      expect(source, costume.name).toBeDefined();
       expect(costume.assetId).toBe(md5(source?.contents ?? ''));
       expect(costume.md5ext).toBe(`${costume.assetId}.svg`);
     }
@@ -402,20 +424,36 @@ describe('the calibration path', () => {
     );
   });
 
-  it('starts calibrating from the green flag, with nothing to press first', () => {
-    // There is no mode to pick. This project does one thing, the board it
-    // defaults to is the one the page offers first, and the shutter watches by
-    // itself -- so a button between the flag and the camera would only ask the
-    // operator to confirm what pressing the flag already said.
+  it('opens on a screen that says what this is and what to fetch', () => {
+    // The operator arrives knowing nothing and has one decision to make --
+    // does this machine show the board, or calibrate a camera -- which nothing
+    // in the app was asking them. The flag opens that screen; the screen
+    // starts the calibration.
     const startup = scriptOrder(blocks, 'start');
     expect(startup[0]?.opcode).toBe('event_whenflagclicked');
-    const last = startup[startup.length - 1];
-    expect(last?.opcode).toBe('event_broadcast');
-    expect(
-      (
-        last?.inputs.BROADCAST_INPUT as [number, [number, string, string]]
-      )[1][2],
-    ).toBe('msg-start');
+    expect(startup.map((block) => block.opcode)).toContain(
+      'looks_switchbackdropto',
+    );
+    const begin = scriptOrder(blocks, 'do-begin').map((block) => block.opcode);
+    expect(begin[0]).toBe('event_whenbroadcastreceived');
+    expect(begin).toContain('event_broadcast');
+  });
+
+  it('can be the machine that shows the board, as well as the one that looks', () => {
+    // Both roles in one project was the plan from the start. What was missing
+    // was anywhere to choose between them.
+    for (const [index, board] of BOARDS.entries()) {
+      const shown = scriptOrder(blocks, `do-show-${index}`).map(
+        (block) => block.opcode,
+      );
+      expect(shown).toContain('looks_switchbackdropto');
+      const backdrops = (
+        enabled.targets[0] as unknown as {
+          costumes: Array<{ name: string }>;
+        }
+      ).costumes.map((costume) => costume.name);
+      expect(backdrops).toContain(`board-${board.columns}x${board.rows}`);
+    }
   });
 
   it('takes the camera and opens a session in one step', () => {
@@ -509,9 +547,15 @@ describe('what the operator is given', () => {
     // has just produced the one document this app exists to produce, for the
     // camera it was produced from: there is no version of "no thanks" worth
     // asking about. It happens when the solve lands.
-    // There are no buttons at all now, so there is certainly not one for
-    // this.
-    expect(sprites.map((sprite) => sprite.name)).toEqual(['guide-tilt']);
+    // The only buttons left are on the opening screen, where a decision is
+    // actually being made. None of them is this one.
+    expect(sprites.map((sprite) => sprite.name)).toEqual([
+      'title-board-9x6',
+      'title-board-7x5',
+      'title-board-5x4',
+      'title-begin',
+      'guide-tilt',
+    ]);
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
     const solved = Object.values(stageBlocks).filter(
       (block) => block.opcode === 'event_broadcast',
