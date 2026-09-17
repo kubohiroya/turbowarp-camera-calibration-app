@@ -1,6 +1,11 @@
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { backdrops, buttons, createProject, fanfare, md5 } from './project.ts';
-import { createHash } from 'node:crypto';
+import {
+  backdrops,
+  buttons,
+  createProject,
+  md5,
+  soundFiles,
+} from './project.ts';
 import {
   EMBEDS_EXTENSIONS,
   EXTENSION_PINS,
@@ -22,15 +27,8 @@ const assets = [
   ...costume,
   file: `${md5(costume.contents)}.svg`,
 }));
-// The sound the finish makes, in the build that can reach a finish.
-const sounds = EMBEDS_EXTENSIONS
-  ? [
-      {
-        bytes: fanfare().bytes,
-        file: `${createHash('md5').update(fanfare().bytes).digest('hex')}.wav`,
-      },
-    ]
-  : [];
+// Everything this app says without words, in the build that can say it.
+const sounds = EMBEDS_EXTENSIONS ? soundFiles() : [];
 const files = new Map<string, string>([
   [
     'apps/main/source/project.source.json',
