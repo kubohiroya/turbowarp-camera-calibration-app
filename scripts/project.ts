@@ -978,30 +978,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           // most of a session, since `ui` changes a handful of times -- this
           // sends nothing, and no sprite touches its visibility.
           ifThen(
-            not(
-              equals(
-                readVariable(VARIABLES.painted, 'painted'),
-                join(
-                  readVariable(VARIABLES.ui, 'ui'),
-                  join(
-                    readVariable(VARIABLES.panel, 'panel'),
-                    readVariable(VARIABLES.turn, 'turn'),
-                  ),
-                ),
-              ),
-            ),
+            not(equals(readVariable(VARIABLES.painted, 'painted'), paintKey())),
             [
-              setVariableFrom(
-                VARIABLES.painted,
-                'painted',
-                join(
-                  readVariable(VARIABLES.ui, 'ui'),
-                  join(
-                    readVariable(VARIABLES.panel, 'panel'),
-                    readVariable(VARIABLES.turn, 'turn'),
-                  ),
-                ),
-              ),
+              setVariableFrom(VARIABLES.painted, 'painted', paintKey()),
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
             ],
           ),
@@ -1235,8 +1214,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               MESSAGES.repaint,
               MESSAGES.flash,
               // Only while the shutter is collecting. Once it is solved, or
-              // the camera is not running, there is nothing to tilt.
-              uiIs('auto'),
+              // the camera is not running, there is nothing to tilt -- and
+              // while it is working out an answer there is nothing to tilt
+              // either: the line says it is calculating, and a picture asking
+              // for a turn at the same moment contradicts it.
+              both(uiIs('auto'), not(solving())),
             ),
           ]
         : []),
@@ -1290,6 +1272,25 @@ export function backButtonCostume(): { name: string; contents: string } {
   return { name: 'back', contents: backButton() };
 }
 
+/** The shutter has a set worth solving and is working out the answer. */
+function solving(): Reporter {
+  return equals(readVariable(VARIABLES.guidance, 'guidance'), 'solving');
+}
+
+/**
+ * Everything a sprite's visibility is decided from, as one value, so the
+ * sprites are told to look again only when one of them changed.
+ */
+function paintKey(): Reporter {
+  return join(
+    readVariable(VARIABLES.ui, 'ui'),
+    join(
+      readVariable(VARIABLES.panel, 'panel'),
+      join(readVariable(VARIABLES.turn, 'turn'), solving()),
+    ),
+  );
+}
+
 /** A session that has ended, one way or the other, while its screen is up. */
 function sessionOver(): Reporter {
   return both(
@@ -1319,8 +1320,11 @@ export function profileQrCostume(): { name: string; contents: string } {
 const PROFILE_QR_AT = { x: 100, y: -8 };
 const PROFILE_QR_SIZE = 78;
 
-/** Bottom right, clear of the monitors, which stack down the left. */
-const BACK_BUTTON_AT = { x: 170, y: -150 };
+/**
+ * Bottom right, clear of the monitors, which stack down the left, and below
+ * the QR code, which reaches down to -132.
+ */
+const BACK_BUTTON_AT = { x: 170, y: -158 };
 
 /**
  * What decides which monitors are on screen. Changes only when the answer can.

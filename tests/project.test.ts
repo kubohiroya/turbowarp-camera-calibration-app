@@ -693,6 +693,44 @@ describe('the calibration path', () => {
     expect(enabled.extensions).toContain('kubohiroyaqrdisplay');
   });
 
+  it('takes the tilt picture down while the answer is being worked out', () => {
+    // The line says it is calculating. A picture asking for a turn at the
+    // same moment says the opposite.
+    const sprite = enabled.targets.find(
+      (target) => (target as { name?: string }).name === 'guide-tilt',
+    ) as unknown as { blocks: Record<string, ScratchBlock> };
+    const shown = sprite.blocks['guide-tilt-show-1'];
+    const condition = texts(sprite.blocks, shown?.inputs.CONDITION);
+    expect(condition).toContain('auto');
+    expect(condition).toContain('solving');
+    // And the sprites are told to look again when that changes, which the
+    // repaint key has to include for them to be told at all.
+    const keys = Object.values(blocks).filter(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[0] === 'painted',
+    );
+    expect(
+      keys.some((block) =>
+        texts(blocks, block.inputs.VALUE).includes('solving'),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps the way back clear of the QR code', () => {
+    const at = (name: string) =>
+      enabled.targets.find(
+        (target) => (target as { name?: string }).name === name,
+      ) as unknown as { x: number; y: number; size: number };
+    const qr = at('profile-qr');
+    const back = at('back');
+    // The code is drawn 320 units wide and scaled by the sprite's size; the
+    // button is 40 tall and centred on its position.
+    const qrBottom = qr.y - (320 * qr.size) / 100 / 2;
+    expect(back.y + 20).toBeLessThan(qrBottom);
+    expect(back.y - 20).toBeGreaterThanOrEqual(-180);
+  });
+
   it('offers a way back once a session is over, and only then', () => {
     // Full screen hides the green flag, which was the only way back. The
     // button is not a second stop sign: it is offered after the session has
