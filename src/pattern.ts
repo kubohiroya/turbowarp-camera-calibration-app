@@ -50,7 +50,7 @@ export function showPattern(
   svg?.setAttribute('role', 'img');
   svg?.setAttribute(
     'aria-label',
-    `内側コーナー ${board.columns}x${board.rows} の市松模様`,
+    `マス ${board.columns + 1}x${board.rows + 1} の ChArUco ボード`,
   );
 
   const dismiss = (event: Event) => {

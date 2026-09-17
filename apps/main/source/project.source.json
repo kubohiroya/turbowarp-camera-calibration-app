@@ -6,7 +6,7 @@
       "variables": {
         "board": [
           "board",
-          "9x6"
+          "10x7"
         ],
         "columns": [
           "columns",
@@ -44,7 +44,7 @@
               1,
               [
                 10,
-                "9x6"
+                "10x7"
               ]
             ]
           },
@@ -183,7 +183,7 @@
         "VARIABLE": "board"
       },
       "spriteName": null,
-      "value": "9x6",
+      "value": "10x7",
       "width": 0,
       "height": 0,
       "x": 10,

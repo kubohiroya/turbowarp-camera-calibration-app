@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  SOLVED_LAYOUT,
   backdrops,
   createProject,
   md5,
@@ -512,7 +513,12 @@ describe('the calibration path', () => {
             (block.inputs.VALUE as [number, [number, string]])[1][1],
           ]),
       );
-      expect(written.get('board')).toBe(`${board.columns}x${board.rows}`);
+      // Named by its squares, which is what the operator can count; the
+      // corners are what the block is given.
+      expect(written.get('board')).toBe(
+        `${board.columns + 1}x${board.rows + 1}`,
+      );
+      expect(written.get('columns')).toBe(String(board.columns));
       expect(Number(written.get('square'))).toBeCloseTo(
         printedCellMillimetres(board) / 1000,
         4,
@@ -691,6 +697,110 @@ describe('the calibration path', () => {
       register.indexOf('data_addtolist'),
     );
     expect(enabled.extensions).toContain('kubohiroyaqrdisplay');
+  });
+
+  it('takes the tilt picture down while the answer is being worked out', () => {
+    // The line says it is calculating. A picture asking for a turn at the
+    // same moment says the opposite.
+    const sprite = enabled.targets.find(
+      (target) => (target as { name?: string }).name === 'guide-tilt',
+    ) as unknown as { blocks: Record<string, ScratchBlock> };
+    const shown = sprite.blocks['guide-tilt-show-1'];
+    const condition = texts(sprite.blocks, shown?.inputs.CONDITION);
+    expect(condition).toContain('auto');
+    expect(condition).toContain('solving');
+    // And the sprites are told to look again when that changes, which the
+    // repaint key has to include for them to be told at all.
+    const keys = Object.values(blocks).filter(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[0] === 'painted',
+    );
+    expect(
+      keys.some((block) =>
+        texts(blocks, block.inputs.VALUE).includes('solving'),
+      ),
+    ).toBe(true);
+  });
+
+  it('names every board by the squares a person can count on it', () => {
+    // "9x6" under a board of ten squares by seven reads as the wrong board.
+    for (const button of titleButtons()) {
+      const board = BOARDS.find((entry) =>
+        button.name.endsWith(`-${entry.columns}x${entry.rows}`),
+      );
+      expect(board, button.name).toBeDefined();
+      if (!board) continue;
+      expect(button.costume.contents).toContain(
+        `>${board.columns + 1}x${board.rows + 1}<`,
+      );
+      expect(button.costume.contents).not.toContain(
+        `>${board.columns}x${board.rows}<`,
+      );
+    }
+  });
+
+  it('lays the solved screen out so nothing covers the QR code', () => {
+    // A code with a monitor over one of its corner squares cannot be read,
+    // and that is what the first layout did: the status wrapped over it.
+    type Box = { left: number; top: number; right: number; bottom: number };
+    const overlaps = (a: Box, b: Box) =>
+      a.left < b.right &&
+      b.left < a.right &&
+      a.top < b.bottom &&
+      b.top < a.bottom;
+    const sprite = (name: string) =>
+      enabled.targets.find(
+        (target) => (target as { name?: string }).name === name,
+      ) as unknown as { x: number; y: number; size: number };
+    const qr = sprite('profile-qr');
+    const half = (320 * qr.size) / 100 / 2;
+    const qrBox = {
+      left: qr.x + 240 - half,
+      right: qr.x + 240 + half,
+      top: 180 - qr.y - half,
+      bottom: 180 - qr.y + half,
+    };
+    const back = sprite('back');
+    const backBox = {
+      left: back.x + 240 - 48,
+      right: back.x + 240 + 48,
+      top: 180 - back.y - 20,
+      bottom: 180 - back.y + 20,
+    };
+    const list = (
+      enabled as unknown as {
+        monitors: Array<{
+          id: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        }>;
+      }
+    ).monitors.find((entry) => entry.id === 'list-profile');
+    expect(list).toBeDefined();
+    const listBox = {
+      left: list?.x ?? 0,
+      top: list?.y ?? 0,
+      right: (list?.x ?? 0) + (list?.width ?? 0),
+      bottom: (list?.y ?? 0) + (list?.height ?? 0),
+    };
+    const status = {
+      left: 0,
+      top: 0,
+      right: 480,
+      bottom: SOLVED_LAYOUT.statusBottom,
+    };
+    for (const box of [qrBox, backBox, listBox]) {
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.right).toBeLessThanOrEqual(480);
+      expect(box.bottom).toBeLessThanOrEqual(360);
+      expect(overlaps(box, status)).toBe(false);
+    }
+    expect(overlaps(qrBox, backBox)).toBe(false);
+    expect(overlaps(qrBox, listBox)).toBe(false);
+    expect(overlaps(backBox, listBox)).toBe(false);
   });
 
   it('offers a way back once a session is over, and only then', () => {

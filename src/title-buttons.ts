@@ -11,6 +11,8 @@
  * No chessboard on any of them. A camera pointed at this screen would find it.
  */
 
+import { squaresLabel } from './board.ts';
+
 const WIDTH = 96;
 const HEIGHT = 40;
 const PLATE = '#1d2c46';
@@ -35,9 +37,12 @@ function button(
   );
 }
 
-/** One per board, labelled by the inner corner counts the operator has to match. */
+/**
+ * One per board, labelled by its squares -- what the operator can count on the
+ * sheet in their hand. The arguments are the extension's inner corners.
+ */
 export function boardButton(columns: number, rows: number): string {
-  return button(`${columns}x${rows}`, PLATE, EDGE);
+  return button(squaresLabel({ columns, rows }), PLATE, EDGE);
 }
 
 /**
@@ -46,7 +51,7 @@ export function boardButton(columns: number, rows: number): string {
  * the display buttons.
  */
 export function startButton(columns: number, rows: number): string {
-  return button(`${columns}x${rows}`, GO, GO_EDGE);
+  return button(squaresLabel({ columns, rows }), GO, GO_EDGE);
 }
 
 /**

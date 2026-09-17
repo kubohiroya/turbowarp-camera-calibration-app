@@ -29,6 +29,7 @@ import {
   MARKER_RATIO,
   patternSvg,
   printedCellMillimetres,
+  squaresLabel,
 } from '../src/board.ts';
 import {
   CLICK_SOUND,
@@ -251,10 +252,16 @@ const PROFILE_LIST = { id: 'list-profile', name: 'profile' } as const;
 /**
  * Shown once the profile exists and has been handed to Camera Source.
  *
- * One sentence, because it is the only thing left to do. Registration has
- * already happened and is not the operator's business; the file is.
+ * Says where the file comes from, not only that there is one. "Export the
+ * list" named a menu item without saying which thing on screen carries it, and
+ * the list monitor does not look like something that has a menu. Registration
+ * has already happened and is not the operator's business.
+ *
+ * Three lines on the status monitor. The solved screen is laid out below
+ * them -- see `SOLVED_LAYOUT`.
  */
-const EXPORT_STATUS = '校正できました。QRを読むか、リストを書き出してください';
+const EXPORT_STATUS =
+  'プロファイルのQRを読むか、ファイルへの書き出しをしてください。ファイル書き出しは、profile欄の項目上で右クリックをして「書き出し」を選択して実行してください';
 
 const IDLE_STATUS = '緑の旗で最初の画面に戻ります';
 
@@ -382,7 +389,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
 
   const blocks: BlockMap = {
     ...script('start', 48, 48, whenFlagClicked(), [
-      setVariable(VARIABLES.board, 'board', `${board.columns}x${board.rows}`),
+      setVariable(VARIABLES.board, 'board', squaresLabel(board)),
       setVariable(VARIABLES.columns, 'columns', String(board.columns)),
       setVariable(VARIABLES.rows, 'rows', String(board.rows)),
       // Only the calibration build has a state to be in, a strip to open, or a
@@ -576,11 +583,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         return [
           onBroadcast(`do-show-${index}`, 2280 + index * 240, 640, message, [
             setVariable(VARIABLES.screen, 'screen', 'board'),
-            setVariable(
-              VARIABLES.board,
-              'board',
-              `${board.columns}x${board.rows}`,
-            ),
+            setVariable(VARIABLES.board, 'board', squaresLabel(board)),
             switchBackdrop(boardBackdropName(board.columns, board.rows)),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
           ]),
@@ -613,11 +616,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         if (!message) return [];
         return [
           onBroadcast(`do-begin-${index}`, 3000 + index * 240, 640, message, [
-            setVariable(
-              VARIABLES.board,
-              'board',
-              `${board.columns}x${board.rows}`,
-            ),
+            setVariable(VARIABLES.board, 'board', squaresLabel(board)),
             setVariable(VARIABLES.columns, 'columns', String(board.columns)),
             setVariable(VARIABLES.rows, 'rows', String(board.rows)),
             setVariable(
@@ -978,30 +977,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           // most of a session, since `ui` changes a handful of times -- this
           // sends nothing, and no sprite touches its visibility.
           ifThen(
-            not(
-              equals(
-                readVariable(VARIABLES.painted, 'painted'),
-                join(
-                  readVariable(VARIABLES.ui, 'ui'),
-                  join(
-                    readVariable(VARIABLES.panel, 'panel'),
-                    readVariable(VARIABLES.turn, 'turn'),
-                  ),
-                ),
-              ),
-            ),
+            not(equals(readVariable(VARIABLES.painted, 'painted'), paintKey())),
             [
-              setVariableFrom(
-                VARIABLES.painted,
-                'painted',
-                join(
-                  readVariable(VARIABLES.ui, 'ui'),
-                  join(
-                    readVariable(VARIABLES.panel, 'panel'),
-                    readVariable(VARIABLES.turn, 'turn'),
-                  ),
-                ),
-              ),
+              setVariableFrom(VARIABLES.painted, 'painted', paintKey()),
               broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
             ],
           ),
@@ -1103,7 +1081,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.panel]: ['panel', 'closed'],
               }
             : {}),
-          [VARIABLES.board]: ['board', `${board.columns}x${board.rows}`],
+          [VARIABLES.board]: ['board', squaresLabel(board)],
           [VARIABLES.columns]: ['columns', board.columns],
           [VARIABLES.rows]: ['rows', board.rows],
           [VARIABLES.status]: ['status', opening],
@@ -1235,8 +1213,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               MESSAGES.repaint,
               MESSAGES.flash,
               // Only while the shutter is collecting. Once it is solved, or
-              // the camera is not running, there is nothing to tilt.
-              uiIs('auto'),
+              // the camera is not running, there is nothing to tilt -- and
+              // while it is working out an answer there is nothing to tilt
+              // either: the line says it is calculating, and a picture asking
+              // for a turn at the same moment contradicts it.
+              both(uiIs('auto'), not(solving())),
             ),
           ]
         : []),
@@ -1247,7 +1228,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         'board',
         10,
         10,
-        `${board.columns}x${board.rows}`,
+        squaresLabel(board),
         // Hidden until a calibration starts, in the build that opens on a
         // screen that says everything itself.
         !embedExtensions,
@@ -1268,6 +1249,20 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             monitor(VARIABLES.reprojection, 'error px', 10, 154, 0, false),
             monitor(VARIABLES.code, 'code', 10, 178, '', false),
             monitor(VARIABLES.camera, 'camera', 10, 202, '', false),
+            // Placed, not left to TurboWarp, which put it over the status.
+            {
+              id: PROFILE_LIST.id,
+              mode: 'list',
+              opcode: 'data_listcontents',
+              params: { LIST: PROFILE_LIST.name },
+              spriteName: null,
+              value: [],
+              width: SOLVED_LAYOUT.list.width,
+              height: SOLVED_LAYOUT.list.height,
+              x: SOLVED_LAYOUT.list.x,
+              y: SOLVED_LAYOUT.list.y,
+              visible: false,
+            },
           ]
         : []),
     ],
@@ -1288,6 +1283,25 @@ export function createProject(title: string, options: ProjectOptions = {}) {
 /** The way back's one costume, which the source directory stores as well. */
 export function backButtonCostume(): { name: string; contents: string } {
   return { name: 'back', contents: backButton() };
+}
+
+/** The shutter has a set worth solving and is working out the answer. */
+function solving(): Reporter {
+  return equals(readVariable(VARIABLES.guidance, 'guidance'), 'solving');
+}
+
+/**
+ * Everything a sprite's visibility is decided from, as one value, so the
+ * sprites are told to look again only when one of them changed.
+ */
+function paintKey(): Reporter {
+  return join(
+    readVariable(VARIABLES.ui, 'ui'),
+    join(
+      readVariable(VARIABLES.panel, 'panel'),
+      join(readVariable(VARIABLES.turn, 'turn'), solving()),
+    ),
+  );
 }
 
 /** A session that has ended, one way or the other, while its screen is up. */
@@ -1312,15 +1326,36 @@ export function profileQrCostume(): { name: string; contents: string } {
 }
 
 /**
- * Right of the profile list and above the way back. The extension draws the
- * code 320 units wide; at this size it stays clear of both and of the status
- * line along the top.
+ * The solved screen, in stage pixels from the top left.
+ *
+ * Measured in TurboWarp rather than assumed: the status monitor wraps the
+ * export instructions onto three lines and ends 96 pixels down. Everything
+ * else starts below that. Left to itself, TurboWarp put the profile list at 65
+ * pixels, over the instructions, so the list has a place of its own; the way
+ * back sits under the list, which leaves the whole right side, top to bottom,
+ * to the QR code -- the thing on this screen that has to be read by a camera.
  */
-const PROFILE_QR_AT = { x: 100, y: -8 };
-const PROFILE_QR_SIZE = 78;
+export const SOLVED_LAYOUT = {
+  statusBottom: 96,
+  list: { x: 5, y: 102, width: 100, height: 170 },
+  back: { centreX: 55, centreY: 318, width: 96, height: 40 },
+  // A sprite size, not a pixel size. TurboWarp draws the code at a power of
+  // two and shrinks it to this, which leaves the modules on uneven pixel
+  // widths; read back from the stage with jsQR, 79 decoded at pixel ratios 1,
+  // 1.5, 2 and 3, and every size near it failed at more of them.
+  qr: { right: 475, top: 104, spriteSize: 79 },
+} as const;
 
-/** Bottom right, clear of the monitors, which stack down the left. */
-const BACK_BUTTON_AT = { x: 170, y: -150 };
+const PROFILE_QR_SIZE = SOLVED_LAYOUT.qr.spriteSize;
+const PROFILE_QR_SIDE = (320 * PROFILE_QR_SIZE) / 100;
+const PROFILE_QR_AT = toStage(
+  SOLVED_LAYOUT.qr.right - PROFILE_QR_SIDE / 2,
+  SOLVED_LAYOUT.qr.top + PROFILE_QR_SIDE / 2,
+);
+const BACK_BUTTON_AT = toStage(
+  SOLVED_LAYOUT.back.centreX,
+  SOLVED_LAYOUT.back.centreY,
+);
 
 /**
  * What decides which monitors are on screen. Changes only when the answer can.

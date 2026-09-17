@@ -23,3 +23,18 @@ export {
   type BoardLayout,
   type BoardSpec,
 } from '@kubohiroya/turbowarp-camera-calibration/runtime';
+
+import type { BoardSpec as Spec } from '@kubohiroya/turbowarp-camera-calibration/runtime';
+
+/**
+ * What a person calls the board: its squares, across by down.
+ *
+ * The extension counts inner corners, where four squares meet, because that
+ * is what a chessboard solve is given. Nobody holding the sheet counts those.
+ * "9x6" printed on a button under a board of ten squares by seven reads as the
+ * wrong board, so everything the operator sees says the squares, and only the
+ * block arguments keep the corners.
+ */
+export function squaresLabel(board: Spec): string {
+  return `${board.columns + 1}x${board.rows + 1}`;
+}
