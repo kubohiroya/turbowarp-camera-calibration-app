@@ -1,12 +1,6 @@
 import { guideCostumes } from '../src/guide.ts';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import {
-  backdrops,
-  buttons,
-  createProject,
-  md5,
-  soundFiles,
-} from './project.ts';
+import { backdrops, createProject, md5, soundFiles } from './project.ts';
 import {
   EMBEDS_EXTENSIONS,
   EXTENSION_PINS,
@@ -22,8 +16,6 @@ const extensions = EMBEDS_EXTENSIONS
   : [];
 const assets = [
   ...backdrops(),
-  // Button costumes only exist in the build that carries the calibration path.
-  ...(EMBEDS_EXTENSIONS ? buttons().map((button) => button.costume) : []),
   // The tilt guide's four pictures, which live on one sprite over the preview.
   ...(EMBEDS_EXTENSIONS ? guideCostumes() : []),
 ].map((costume) => ({

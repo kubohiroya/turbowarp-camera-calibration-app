@@ -16,7 +16,6 @@ import { EMBEDS_EXTENSIONS, EXTENSION_PINS } from './extensions.ts';
 import {
   both,
   broadcast,
-  either,
   equals,
   extensionReporter,
   extensionStep,
@@ -49,24 +48,8 @@ import {
   type Reporter,
   type Step,
 } from './blocks.ts';
-import {
-  buttonTarget,
-  guideTarget,
-  onBroadcast,
-  uiIs,
-  type ButtonSpec,
-} from './sprites.ts';
+import { guideTarget, onBroadcast, uiIs } from './sprites.ts';
 import { guideCostumes } from '../src/guide.ts';
-import {
-  handleIcon,
-  leaveIcon,
-  manualIcon,
-  restartIcon,
-  sampleIcon,
-  solveIcon,
-  startIcon,
-  workingIcon,
-} from '../src/icons.ts';
 
 /**
  * The stage. Deliberately featureless.
@@ -90,92 +73,6 @@ export function backdrops(): ReadonlyArray<{ name: string; contents: string }> {
   return [{ name: backdropName, contents: stageBackdrop }];
 }
 
-/**
- * The strip, left to right, with the slots deliberately reused.
- *
- * Start and restart share a slot, and so do solve and register: they are never
- * both available, and giving each its own place would make the row jump as the
- * session moves through its states. At most four are on screen at once.
- */
-export function buttons(): readonly ButtonSpec[] {
-  const y = -140;
-  const capture = both(panelOpen(), either(uiIs('ready'), uiIs('ready+')));
-  return [
-    {
-      name: 'btn-start',
-      costume: { name: 'start', contents: startIcon() },
-      x: -120,
-      y,
-      broadcast: MESSAGES.start,
-      visibleWhen: both(panelOpen(), uiIs('idle')),
-    },
-    {
-      name: 'btn-restart',
-      costume: { name: 'restart', contents: restartIcon() },
-      x: -120,
-      y,
-      broadcast: MESSAGES.start,
-      visibleWhen: both(panelOpen(), not(either(uiIs('idle'), uiIs('busy')))),
-    },
-    {
-      name: 'btn-sample',
-      costume: { name: 'sample', contents: sampleIcon() },
-      x: -40,
-      y,
-      broadcast: MESSAGES.sample,
-      visibleWhen: capture,
-    },
-    {
-      // Shares the sample slot: the shutter is either being pressed by a
-      // person or by the extension, so these two are never both on offer.
-      name: 'btn-manual',
-      costume: { name: 'manual', contents: manualIcon() },
-      x: -40,
-      y,
-      broadcast: MESSAGES.manual,
-      visibleWhen: both(panelOpen(), uiIs('auto')),
-    },
-    {
-      name: 'btn-solve',
-      costume: { name: 'solve', contents: solveIcon() },
-      x: 40,
-      y,
-      broadcast: MESSAGES.solve,
-      visibleWhen: both(panelOpen(), uiIs('ready+')),
-    },
-    {
-      name: 'btn-leave',
-      costume: { name: 'leave', contents: leaveIcon() },
-      x: 120,
-      y,
-      broadcast: MESSAGES.leave,
-      // Hidden while an operation runs, like the rest. The key still works, so
-      // there is always a way out of something that will not finish -- it just
-      // is not a button that invites a second press mid-operation.
-      visibleWhen: both(panelOpen(), not(either(uiIs('idle'), uiIs('busy')))),
-    },
-    {
-      // Shown while an operation is running, in the slot the buttons vacate,
-      // so the strip does not simply go empty and look broken.
-      name: 'indicator-working',
-      costume: { name: 'working', contents: workingIcon() },
-      x: -40,
-      y,
-      visibleWhen: uiIs('busy'),
-    },
-    {
-      // The only thing on screen when the strip is closed, and it carries no
-      // board artwork: nothing the detector could find.
-      name: 'btn-handle',
-      costume: { name: 'handle', contents: handleIcon(false) },
-      flips: true,
-      x: 200,
-      y,
-      broadcast: MESSAGES.panel,
-    },
-  ];
-}
-
 const CAMERA_SOURCE = 'kubohiroyacamerasource';
 const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
 
@@ -183,17 +80,25 @@ const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
 const CAPTURE_CAMERA = 'default';
 
 /** One message per action, so a click and the key beside it run one script. */
+/**
+ * What is left to say, now that nothing is pressed.
+ *
+ * The green flag starts a calibration and the red stop button ends one -- the
+ * extension releases its camera on `PROJECT_STOP_ALL` -- so every control this
+ * project used to draw was a second way to do something TurboWarp already
+ * does, or a fallback for the automatic path failing. A fallback nobody can
+ * find is not a fallback; it is a strip of buttons over the camera picture.
+ *
+ * `adopt` is not part of the loop: it reads a profile the operator put into
+ * the list themselves.
+ */
 const MESSAGES = {
   start: { id: 'msg-start', name: 'start' },
-  sample: { id: 'msg-sample', name: 'sample' },
-  solve: { id: 'msg-solve', name: 'solve' },
   register: { id: 'msg-register', name: 'register' },
-  manual: { id: 'msg-manual', name: 'manual' },
   adopt: { id: 'msg-adopt', name: 'adopt' },
-  leave: { id: 'msg-leave', name: 'leave' },
   repaint: { id: 'msg-repaint', name: 'repaint' },
   flash: { id: 'msg-flash', name: 'flash' },
-  panel: { id: 'msg-panel', name: 'panel' },
+  hunt: { id: 'msg-hunt', name: 'hunt' },
 } as const;
 
 const VARIABLES = {
@@ -207,6 +112,7 @@ const VARIABLES = {
   turn: 'turn',
   turnWords: 'turn-words',
   cued: 'cued',
+  hunted: 'hunted',
   progress: 'progress',
   sounded: 'sounded',
   fit: 'fit',
@@ -246,22 +152,14 @@ const EXPORT_STATUS = [
 ].join('   /   ');
 
 const IDLE_STATUS = [
-  'c=もう一度始める',
-  '1/2/3=板を選ぶ',
-  'tab=ボタンを開く',
-  '模様はアプリのページで表示・印刷します',
+  '緑の旗で始まります。停止ボタンでカメラを返します。',
+  '模様はこのページで表示・印刷します。板はどれでも構いません — かざした板を見つけます。',
 ].join('   ');
 
 const CAPTURE_STATUS = [
-  'ボードを持って、角度と距離を変えながらカメラに見せてください。',
-  '撮るのは拡張がやります。指示は下に出ます。',
-  'tab=ボタンを開く   a=自分で撮る   space=やめる',
-].join('   /   ');
-
-/** Once the operator has taken the shutter back. */
-const MANUAL_STATUS = [
-  's=1枚撮る   v=solve   p=camera-sourceへ登録   space=やめる',
-  '角度と距離を変えて撮ること。傾けずにずらすだけでは解けません。',
+  'ボードを持って、画面の絵のとおりに傾けてください。',
+  '撮る・解く・登録まで自動です。押すものはありません。',
+  'やめるときは停止ボタン、やり直すときは緑の旗。',
 ].join('   /   ');
 
 /**
@@ -374,13 +272,6 @@ function declaredSizes(board: (typeof BOARDS)[number]): {
   };
 }
 
-/** The strip is closed unless the operator opened it. */
-function equalsPanel(state: 'open' | 'closed'): Reporter {
-  return equals(readVariable(VARIABLES.panel, 'panel'), state);
-}
-
-const panelOpen = () => equalsPanel('open');
-
 export interface ProjectOptions {
   /**
    * Whether this build carries the calibration extensions.
@@ -450,69 +341,12 @@ export function createProject(title: string, options: ProjectOptions = {}) {
   };
 
   if (embedExtensions) {
-    BOARDS.forEach((choice, index) => {
-      Object.assign(
-        blocks,
-        // The board is named by its inner corner counts, which is what the
-        // calibration block is given. No picture of it appears anywhere in
-        // this project: a drawing of the target is a thing the finder can
-        // find, and the numbers are what the operator has to get right.
-        script(
-          `board-${index}`,
-          48 + index * 240,
-          280,
-          whenKeyPressed(String(index + 1)),
-          [
-            setVariable(
-              VARIABLES.board,
-              'board',
-              `${choice.columns}x${choice.rows}`,
-            ),
-            setVariable(VARIABLES.columns, 'columns', String(choice.columns)),
-            setVariable(VARIABLES.rows, 'rows', String(choice.rows)),
-            // The three boards print at different square sizes, so these
-            // travel with the choice. Left behind, a session would be
-            // measuring the board the operator stopped using.
-            setVariable(
-              VARIABLES.square,
-              'square',
-              declaredSizes(choice).square,
-            ),
-            setVariable(
-              VARIABLES.marker,
-              'marker',
-              declaredSizes(choice).marker,
-            ),
-            setVariable(VARIABLES.status, 'status', IDLE_STATUS),
-          ],
-        ),
-      );
-    });
-
     Object.assign(
       blocks,
       // The keys send the same messages the buttons do, so the work lives in
       // one place per action and the two cannot drift apart.
-      script('key-start', 48, 480, whenKeyPressed('c'), [
-        broadcast(MESSAGES.start.id, MESSAGES.start.name),
-      ]),
-      script('key-sample', 360, 480, whenKeyPressed('s'), [
-        broadcast(MESSAGES.sample.id, MESSAGES.sample.name),
-      ]),
-      script('key-solve', 600, 480, whenKeyPressed('v'), [
-        broadcast(MESSAGES.solve.id, MESSAGES.solve.name),
-      ]),
-      script('key-leave', 1080, 480, whenKeyPressed('space'), [
-        broadcast(MESSAGES.leave.id, MESSAGES.leave.name),
-      ]),
       script('key-adopt', 1800, 480, whenKeyPressed('i'), [
         broadcast(MESSAGES.adopt.id, MESSAGES.adopt.name),
-      ]),
-      script('key-manual', 1560, 480, whenKeyPressed('a'), [
-        broadcast(MESSAGES.manual.id, MESSAGES.manual.name),
-      ]),
-      script('key-panel', 1320, 480, whenKeyPressed('tab'), [
-        broadcast(MESSAGES.panel.id, MESSAGES.panel.name),
       ]),
 
       // Taking the camera and opening a session are one step. A camera held
@@ -552,23 +386,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // and handing it over again is what restarting a session does. A control
       // to flip back and forth would be a fifth button on the strip for a
       // choice nobody makes twice in one session.
-      onBroadcast('do-manual', 1560, 640, MESSAGES.manual, [
-        extensionStep(CAMERA_CALIBRATION, 'stopAutomaticCameraCalibration', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-        setVariable(VARIABLES.status, 'status', MANUAL_STATUS),
-        setVariable(VARIABLES.advice, 'advice', ''),
-      ]),
-      onBroadcast('do-sample', 360, 640, MESSAGES.sample, [
-        extensionStep(CAMERA_CALIBRATION, 'addCameraCalibrationSample', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-      ]),
-      onBroadcast('do-solve', 600, 640, MESSAGES.solve, [
-        extensionStep(CAMERA_CALIBRATION, 'solveCameraCalibration', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-      ]),
       onBroadcast('do-register', 840, 640, MESSAGES.register, [
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
@@ -609,24 +426,54 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       // Leaving has to hand the camera back. Resetting the display and leaving
       // the lease held would strand a shared camera for every other consumer,
       // with nothing on screen to say it had happened.
-      onBroadcast('do-leave', 1080, 640, MESSAGES.leave, [
-        extensionStep(CAMERA_CALIBRATION, 'cancelCameraCalibration', {
-          CAMERA_ID: CAPTURE_CAMERA,
+
+      // The board finds itself.
+      //
+      // Three sheets come out of the page and only the chosen one is looked
+      // for, which used to mean three keys and a line of text explaining
+      // them. But holding the wrong one is not silence: the markers are seen
+      // and they do not make this board, which the extension says as
+      // `wrong-board`. That is enough to work out which sheet is in front of
+      // the camera -- try the next one.
+      //
+      // Only on `wrong-board`. An empty frame says nothing about which board
+      // the operator has, so cycling then would be guessing, and would keep
+      // restarting a session that was about to be handed a board.
+      onBroadcast('do-hunt', 2040, 640, MESSAGES.hunt, [
+        ...BOARDS.flatMap((choice, index) => {
+          const next = BOARDS[(index + 1) % BOARDS.length] ?? choice;
+          return [
+            ifThen(
+              equals(
+                readVariable(VARIABLES.board, 'board'),
+                `${choice.columns}x${choice.rows}`,
+              ),
+              [
+                setVariable(
+                  VARIABLES.board,
+                  'board',
+                  `${next.columns}x${next.rows}`,
+                ),
+                setVariable(VARIABLES.columns, 'columns', String(next.columns)),
+                setVariable(VARIABLES.rows, 'rows', String(next.rows)),
+                setVariable(
+                  VARIABLES.square,
+                  'square',
+                  declaredSizes(next).square,
+                ),
+                setVariable(
+                  VARIABLES.marker,
+                  'marker',
+                  declaredSizes(next).marker,
+                ),
+              ],
+            ),
+          ];
         }),
-        extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-        extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-        setVariable(VARIABLES.status, 'status', IDLE_STATUS),
-      ]),
-      onBroadcast('do-panel', 1320, 640, MESSAGES.panel, [
-        ifElse(
-          equalsPanel('open'),
-          [setVariable(VARIABLES.panel, 'panel', 'closed')],
-          [setVariable(VARIABLES.panel, 'panel', 'open')],
-        ),
+        // A session is fixed to one board when it starts, so trying another
+        // means starting again. Nothing is lost: this only runs while nothing
+        // has been collected.
+        broadcast(MESSAGES.start.id, MESSAGES.start.name),
       ]),
 
       // Guidance for the ear, on a loop of its own.
@@ -666,6 +513,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ),
               playSound(CLICK_SOUND),
             ],
+          ),
+          // Holding the wrong sheet: try the next board. Once per pass of this
+          // loop, which is slow enough that a session gets a moment to look
+          // before it is restarted again.
+          ifThen(
+            both(
+              equals(
+                readVariable(VARIABLES.guidance, 'guidance'),
+                'wrong-board',
+              ),
+              equals(readVariable(VARIABLES.samples, 'samples'), '0'),
+            ),
+            [broadcast(MESSAGES.hunt.id, MESSAGES.hunt.name)],
           ),
           // Faster the closer the view is to one worth keeping: about twice a
           // second at nothing, twenty at everything. The number is how much
@@ -1059,7 +919,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
   }
 
   const costumes = backdrops();
-  const strip = embedExtensions ? buttons() : [];
   return {
     targets: [
       {
@@ -1086,6 +945,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.turn]: ['turn', ''],
                 [VARIABLES.turnWords]: ['turn words', ''],
                 [VARIABLES.cued]: ['cued', ''],
+                [VARIABLES.hunted]: ['hunted', ''],
                 [VARIABLES.progress]: ['progress', 0],
                 [VARIABLES.sounded]: ['sounded', 0],
                 [VARIABLES.fit]: ['fit', ''],
@@ -1137,20 +997,12 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         videoState: 'off',
         textToSpeechLanguage: null,
       },
-      ...strip.map((button, index) =>
-        buttonTarget(
-          button,
-          index + 1,
-          md5(button.costume.contents),
-          MESSAGES.repaint,
-        ),
-      ),
       ...(embedExtensions
         ? [
             guideTarget(
               guideCostumes(),
               guideCostumes().map((costume) => md5(costume.contents)),
-              strip.length + 1,
+              1,
               MESSAGES.repaint,
               MESSAGES.flash,
               // Only while the shutter is collecting. Once it is solved, or
