@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  SOLVED_LAYOUT,
   backdrops,
   createProject,
   md5,
@@ -717,18 +718,67 @@ describe('the calibration path', () => {
     ).toBe(true);
   });
 
-  it('keeps the way back clear of the QR code', () => {
-    const at = (name: string) =>
+  it('lays the solved screen out so nothing covers the QR code', () => {
+    // A code with a monitor over one of its corner squares cannot be read,
+    // and that is what the first layout did: the status wrapped over it.
+    type Box = { left: number; top: number; right: number; bottom: number };
+    const overlaps = (a: Box, b: Box) =>
+      a.left < b.right &&
+      b.left < a.right &&
+      a.top < b.bottom &&
+      b.top < a.bottom;
+    const sprite = (name: string) =>
       enabled.targets.find(
         (target) => (target as { name?: string }).name === name,
       ) as unknown as { x: number; y: number; size: number };
-    const qr = at('profile-qr');
-    const back = at('back');
-    // The code is drawn 320 units wide and scaled by the sprite's size; the
-    // button is 40 tall and centred on its position.
-    const qrBottom = qr.y - (320 * qr.size) / 100 / 2;
-    expect(back.y + 20).toBeLessThan(qrBottom);
-    expect(back.y - 20).toBeGreaterThanOrEqual(-180);
+    const qr = sprite('profile-qr');
+    const half = (320 * qr.size) / 100 / 2;
+    const qrBox = {
+      left: qr.x + 240 - half,
+      right: qr.x + 240 + half,
+      top: 180 - qr.y - half,
+      bottom: 180 - qr.y + half,
+    };
+    const back = sprite('back');
+    const backBox = {
+      left: back.x + 240 - 48,
+      right: back.x + 240 + 48,
+      top: 180 - back.y - 20,
+      bottom: 180 - back.y + 20,
+    };
+    const list = (
+      enabled as unknown as {
+        monitors: Array<{
+          id: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        }>;
+      }
+    ).monitors.find((entry) => entry.id === 'list-profile');
+    expect(list).toBeDefined();
+    const listBox = {
+      left: list?.x ?? 0,
+      top: list?.y ?? 0,
+      right: (list?.x ?? 0) + (list?.width ?? 0),
+      bottom: (list?.y ?? 0) + (list?.height ?? 0),
+    };
+    const status = {
+      left: 0,
+      top: 0,
+      right: 480,
+      bottom: SOLVED_LAYOUT.statusBottom,
+    };
+    for (const box of [qrBox, backBox, listBox]) {
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.right).toBeLessThanOrEqual(480);
+      expect(box.bottom).toBeLessThanOrEqual(360);
+      expect(overlaps(box, status)).toBe(false);
+    }
+    expect(overlaps(qrBox, backBox)).toBe(false);
+    expect(overlaps(qrBox, listBox)).toBe(false);
+    expect(overlaps(backBox, listBox)).toBe(false);
   });
 
   it('offers a way back once a session is over, and only then', () => {
