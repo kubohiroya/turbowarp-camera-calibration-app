@@ -626,6 +626,20 @@ describe('the calibration path', () => {
     }
   });
 
+  it('keeps the profile in browser storage as soon as it is published', () => {
+    // A camera app on the same origin opened this one and restores what lands
+    // there, so a solved or adopted profile has to reach it without a file.
+    for (const name of ['do-register', 'do-adopt']) {
+      const order = scriptOrder(blocks, name).map((block) => block.opcode);
+      const published = order.indexOf(
+        'kubohiroyacameracalibration_publishCameraCalibration',
+      );
+      const saved = order.indexOf('kubohiroyacamerasource_saveCameraProfile');
+      expect(published, name).toBeGreaterThan(-1);
+      expect(saved, name).toBe(published + 1);
+    }
+  });
+
   it('puts the camera away once the profile is out', () => {
     // A live picture after the finish invites the operator to keep holding
     // the board up, and a running camera keeps its light on for nothing.
