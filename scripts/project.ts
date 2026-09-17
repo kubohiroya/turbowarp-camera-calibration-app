@@ -499,6 +499,14 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
+        // And keep it on this PC. An app on the same origin -- the camera app
+        // that opened this one in a window -- restores it from there and is
+        // told the moment it lands, so the operator does not have to carry a
+        // file between two windows on the same screen. A cache, not a copy:
+        // the file and the QR code below stay the way it leaves the PC.
+        extensionStep(CAMERA_SOURCE, 'saveCameraProfile', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
         // And put it where it can be taken away. This app exists to produce
         // this one document; a calibration that only ever lives inside a
         // running project has not been handed to anybody.
@@ -555,6 +563,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // Handing it to Camera Source is what makes it answerable: the
         // conditions it has to fit are the ones Camera Source is holding.
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        // Kept the same way as a solved one. Whether it fits is the consumer's
+        // question: restoring checks it against that consumer's own camera.
+        extensionStep(CAMERA_SOURCE, 'saveCameraProfile', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
         // The fit is shown for a profile brought in, and only for one. A

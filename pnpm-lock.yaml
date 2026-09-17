@@ -22,8 +22,8 @@ importers:
         specifier: 0.13.0
         version: 0.13.0
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.9.1
-        version: 0.9.1
+        specifier: 0.10.0
+        version: 0.10.0
       '@kubohiroya/turbowarp-qr-display':
         specifier: 0.1.0
         version: 0.1.0
@@ -135,12 +135,12 @@ packages:
     resolution: {integrity: sha512-EMGME0FttD/hJ65K/jICFUNwPHQNn4mJF8/n4ol7hCBSXHukoOkbilcuS5xQjDIIqNS0vpV6fF8fEvbrKjtR8g==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.8.0':
-    resolution: {integrity: sha512-ziCny1gIJgYJDyVgxNDgU2yGwGLQslACVmL9aYlHAeW3LXlaVNvj1MoGOfrUP77sKkZv8xl9ahKvcI987IDKfg==}
+  '@kubohiroya/turbowarp-camera-source@0.10.0':
+    resolution: {integrity: sha512-9fIxjtIVzuj4h+vHcJdf2noMDYbs7IrH3YXv9hkCLXWl/Z/tdmO9fehWh41Yf5ixhGNGo3D2w6ECredHy8FtTg==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.9.1':
-    resolution: {integrity: sha512-Hb7Y2ID261gFtl/d0kSD/JN9yz0Huvt0oB8L2IEqFLcj+Kwb2QS7iJydF+y8r3hL/RRt6+JdIC0oTYMiPLFwnA==}
+  '@kubohiroya/turbowarp-camera-source@0.8.0':
+    resolution: {integrity: sha512-ziCny1gIJgYJDyVgxNDgU2yGwGLQslACVmL9aYlHAeW3LXlaVNvj1MoGOfrUP77sKkZv8xl9ahKvcI987IDKfg==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-qr-display@0.1.0':
@@ -1150,9 +1150,9 @@ snapshots:
       '@kubohiroya/turbowarp-camera-source': 0.8.0
       comlink: 4.4.2
 
-  '@kubohiroya/turbowarp-camera-source@0.8.0': {}
+  '@kubohiroya/turbowarp-camera-source@0.10.0': {}
 
-  '@kubohiroya/turbowarp-camera-source@0.9.1': {}
+  '@kubohiroya/turbowarp-camera-source@0.8.0': {}
 
   '@kubohiroya/turbowarp-qr-display@0.1.0':
     dependencies:
