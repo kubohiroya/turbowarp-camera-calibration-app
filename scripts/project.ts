@@ -29,6 +29,7 @@ import {
   MARKER_RATIO,
   patternSvg,
   printedCellMillimetres,
+  squaresLabel,
 } from '../src/board.ts';
 import {
   CLICK_SOUND,
@@ -388,7 +389,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
 
   const blocks: BlockMap = {
     ...script('start', 48, 48, whenFlagClicked(), [
-      setVariable(VARIABLES.board, 'board', `${board.columns}x${board.rows}`),
+      setVariable(VARIABLES.board, 'board', squaresLabel(board)),
       setVariable(VARIABLES.columns, 'columns', String(board.columns)),
       setVariable(VARIABLES.rows, 'rows', String(board.rows)),
       // Only the calibration build has a state to be in, a strip to open, or a
@@ -582,11 +583,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         return [
           onBroadcast(`do-show-${index}`, 2280 + index * 240, 640, message, [
             setVariable(VARIABLES.screen, 'screen', 'board'),
-            setVariable(
-              VARIABLES.board,
-              'board',
-              `${board.columns}x${board.rows}`,
-            ),
+            setVariable(VARIABLES.board, 'board', squaresLabel(board)),
             switchBackdrop(boardBackdropName(board.columns, board.rows)),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
           ]),
@@ -619,11 +616,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         if (!message) return [];
         return [
           onBroadcast(`do-begin-${index}`, 3000 + index * 240, 640, message, [
-            setVariable(
-              VARIABLES.board,
-              'board',
-              `${board.columns}x${board.rows}`,
-            ),
+            setVariable(VARIABLES.board, 'board', squaresLabel(board)),
             setVariable(VARIABLES.columns, 'columns', String(board.columns)),
             setVariable(VARIABLES.rows, 'rows', String(board.rows)),
             setVariable(
@@ -1088,7 +1081,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.panel]: ['panel', 'closed'],
               }
             : {}),
-          [VARIABLES.board]: ['board', `${board.columns}x${board.rows}`],
+          [VARIABLES.board]: ['board', squaresLabel(board)],
           [VARIABLES.columns]: ['columns', board.columns],
           [VARIABLES.rows]: ['rows', board.rows],
           [VARIABLES.status]: ['status', opening],
@@ -1235,7 +1228,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         'board',
         10,
         10,
-        `${board.columns}x${board.rows}`,
+        squaresLabel(board),
         // Hidden until a calibration starts, in the build that opens on a
         // screen that says everything itself.
         !embedExtensions,

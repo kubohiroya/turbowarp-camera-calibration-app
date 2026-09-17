@@ -513,7 +513,12 @@ describe('the calibration path', () => {
             (block.inputs.VALUE as [number, [number, string]])[1][1],
           ]),
       );
-      expect(written.get('board')).toBe(`${board.columns}x${board.rows}`);
+      // Named by its squares, which is what the operator can count; the
+      // corners are what the block is given.
+      expect(written.get('board')).toBe(
+        `${board.columns + 1}x${board.rows + 1}`,
+      );
+      expect(written.get('columns')).toBe(String(board.columns));
       expect(Number(written.get('square'))).toBeCloseTo(
         printedCellMillimetres(board) / 1000,
         4,
@@ -716,6 +721,23 @@ describe('the calibration path', () => {
         texts(blocks, block.inputs.VALUE).includes('solving'),
       ),
     ).toBe(true);
+  });
+
+  it('names every board by the squares a person can count on it', () => {
+    // "9x6" under a board of ten squares by seven reads as the wrong board.
+    for (const button of titleButtons()) {
+      const board = BOARDS.find((entry) =>
+        button.name.endsWith(`-${entry.columns}x${entry.rows}`),
+      );
+      expect(board, button.name).toBeDefined();
+      if (!board) continue;
+      expect(button.costume.contents).toContain(
+        `>${board.columns + 1}x${board.rows + 1}<`,
+      );
+      expect(button.costume.contents).not.toContain(
+        `>${board.columns}x${board.rows}<`,
+      );
+    }
   });
 
   it('lays the solved screen out so nothing covers the QR code', () => {

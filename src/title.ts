@@ -77,7 +77,13 @@ export function titleBackdrop(facts: TitleFacts): string {
       DIM,
     ) +
     line('印刷した紙を用意してください。', LEFT, 172, 12, DIM) +
-    line('ボードを表示', LEFT, TITLE_LAYOUT.boardLabelY, 11, DIM) +
+    line(
+      'ボードを表示（数字は横×縦のマスの数）',
+      LEFT,
+      TITLE_LAYOUT.boardLabelY,
+      11,
+      DIM,
+    ) +
     line('校正を始める', LEFT, TITLE_LAYOUT.beginLabelY, 11, DIM) +
     '</svg>\n'
   );

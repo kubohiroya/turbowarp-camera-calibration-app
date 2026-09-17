@@ -3,7 +3,7 @@ import {
   createRuntimeMessageIndicator,
 } from '@kubohiroya/turbowarp-app-shell';
 import config from '../config/app.json';
-import { BOARDS, printedCellMillimetres } from './board.ts';
+import { BOARDS, printedCellMillimetres, squaresLabel } from './board.ts';
 import { boardId, findBoard, patternFile, showPattern } from './pattern.ts';
 import { featureFlags } from '../config/feature-flags.ts';
 import './style.css';
@@ -134,8 +134,8 @@ function openPattern(board: (typeof BOARDS)[number]): void {
   const update = () => {
     const size = view.measure();
     readout.textContent =
-      `内側コーナー ${board.columns}x${board.rows}` +
-      `（マス ${board.columns + 1}x${board.rows + 1}）` +
+      `マス ${squaresLabel(board)}` +
+      `（内側コーナー ${board.columns}x${board.rows}）` +
       ` 1マス ≈ ${size.cellMillimetres.toFixed(1)} mm（公称値。実寸は定規で測ってください）` +
       ' — クリックまたは Esc で戻る';
   };
@@ -169,7 +169,7 @@ for (const board of BOARDS) {
   const item = document.createElement('li');
   const name = element(
     'span',
-    `内側コーナー ${board.columns}x${board.rows}（マス ${board.columns + 1}x${board.rows + 1}）` +
+    `マス ${squaresLabel(board)}（内側コーナー ${board.columns}x${board.rows}）` +
       ` / A4原寸で1マス ${printedCellMillimetres(board).toFixed(1)} mm`,
   );
   const openHere = document.createElement('button');
