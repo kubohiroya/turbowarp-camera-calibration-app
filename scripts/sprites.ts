@@ -246,6 +246,94 @@ export function backButtonTarget(
   };
 }
 
+/**
+ * The profile, as a QR code another machine can read off this screen.
+ *
+ * The list's export is a file, and a file has to be carried: to another
+ * machine, into another project, through a download folder. A camera pointed
+ * at this screen carries it in the time it takes to hold a phone up. The
+ * sprite wears the code in place of its own costume -- the extension swaps the
+ * picture and puts it back -- so nothing about the code is saved into the
+ * project.
+ *
+ * Shown on the repaint that follows registration, which is the first moment
+ * the list holds the profile, and taken off on every repaint after that when
+ * `when` no longer holds.
+ */
+export function profileQrTarget(
+  costume: { name: string; contents: string },
+  assetId: string,
+  at: { x: number; y: number },
+  size: number,
+  layerOrder: number,
+  repaint: { id: string; name: string },
+  when: Reporter,
+  text: Reporter,
+  extensionId: string,
+): Record<string, unknown> {
+  const takeOff: Step[] = [
+    { opcode: `${extensionId}_hideQrCode`, inputs: {} },
+    hide,
+  ];
+  return {
+    isStage: false,
+    name: 'profile-qr',
+    variables: {},
+    lists: {},
+    broadcasts: {},
+    blocks: {
+      ...script(
+        'profile-qr-show',
+        48,
+        48,
+        whenBroadcastReceived(repaint.id, repaint.name),
+        [
+          ifElse(
+            when,
+            [
+              {
+                opcode: `${extensionId}_showQrCode`,
+                // L, the lowest. A screen does not get scratched or folded,
+                // which is what the higher levels pay for, and a profile is
+                // around 700 bytes: at L the modules stay large enough to read
+                // from arm's length at the size the stage leaves for them.
+                inputs: { LEVEL: [1, [10, 'L']] },
+                reporters: { TEXT: text },
+              },
+              show,
+            ],
+            takeOff,
+          ),
+        ],
+      ),
+      ...script('profile-qr-start', 48, 260, whenFlagClicked(), takeOff),
+    },
+    comments: {},
+    currentCostume: 0,
+    costumes: [
+      {
+        assetId,
+        name: costume.name,
+        bitmapResolution: 1,
+        md5ext: `${assetId}.svg`,
+        dataFormat: 'svg',
+        rotationCenterX: 1,
+        rotationCenterY: 1,
+      },
+    ],
+    sounds: [],
+    volume: 100,
+    layerOrder,
+    visible: false,
+    x: at.x,
+    y: at.y,
+    size,
+    direction: 90,
+    draggable: false,
+    rotationStyle: "don't rotate",
+  };
+}
+
 /** `ui` is the one token every button tests against. */
 export function uiIs(value: string): Reporter {
   return equals(readVariable('ui', 'ui'), value);
