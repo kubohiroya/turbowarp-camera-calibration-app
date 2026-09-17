@@ -85,6 +85,66 @@ export function setVariableFrom(
   };
 }
 
+function list(id: string, name: string): [string, string] {
+  return [name, id];
+}
+
+/**
+ * Lists, for the one thing a variable cannot do: leave the project.
+ *
+ * A list monitor has import and export in its own context menu, so a list is
+ * the only place in a Scratch project from which bytes can reach a file and
+ * come back. The profile is the app's product, and this is how it is handed
+ * over.
+ */
+export function emptyList(id: string, name: string): Step {
+  return {
+    opcode: 'data_deletealloflist',
+    fields: { LIST: list(id, name) },
+  };
+}
+
+export function appendToList(
+  id: string,
+  name: string,
+  value: Reporter | string,
+): Step {
+  const base = {
+    opcode: 'data_addtolist',
+    fields: { LIST: list(id, name) },
+  };
+  return typeof value === 'string'
+    ? { ...base, inputs: { ITEM: text(value) } }
+    : { ...base, reporters: { ITEM: value } };
+}
+
+/**
+ * Turns a sprite. Used to flip the handle, not to animate anything.
+ *
+ * A second costume would say the same thing and cost a second asset, a second
+ * hash and a line in every place that counts them; the handle is one chevron
+ * and the open state is the same chevron the other way up.
+ */
+export function pointInDirection(degrees: number): Step {
+  return {
+    opcode: 'motion_pointindirection',
+    inputs: { DIRECTION: [1, [8, String(degrees)]] },
+  };
+}
+
+export function showList(id: string, name: string): Step {
+  return { opcode: 'data_showlist', fields: { LIST: list(id, name) } };
+}
+
+/** Everything in the list, run together. What was exported, read back. */
+export function listContents(id: string, name: string): Reporter {
+  return {
+    opcode: 'data_itemoflist',
+    fields: { LIST: list(id, name) },
+    inputs: { INDEX: text('1') },
+  };
+}
+
 export function showVariable(id: string, name: string): Step {
   return {
     opcode: 'data_showvariable',

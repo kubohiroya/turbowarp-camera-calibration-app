@@ -23,10 +23,13 @@ import {
   forever,
   greaterThan,
   add,
+  appendToList,
   divide,
+  emptyList,
   ifElse,
   ifThen,
   join,
+  listContents,
   multiply,
   playSound,
   not,
@@ -34,6 +37,7 @@ import {
   script,
   setVariable,
   setVariableFrom,
+  showList,
   showVariable,
   switchBackdrop,
   waitSeconds,
@@ -49,7 +53,6 @@ import {
   handleIcon,
   leaveIcon,
   manualIcon,
-  registerIcon,
   restartIcon,
   sampleIcon,
   solveIcon,
@@ -133,14 +136,6 @@ export function buttons(): readonly ButtonSpec[] {
       visibleWhen: both(panelOpen(), uiIs('ready+')),
     },
     {
-      name: 'btn-register',
-      costume: { name: 'register', contents: registerIcon() },
-      x: 40,
-      y,
-      broadcast: MESSAGES.register,
-      visibleWhen: both(panelOpen(), uiIs('solved')),
-    },
-    {
       name: 'btn-leave',
       costume: { name: 'leave', contents: leaveIcon() },
       x: 120,
@@ -165,6 +160,7 @@ export function buttons(): readonly ButtonSpec[] {
       // board artwork: nothing the detector could find.
       name: 'btn-handle',
       costume: { name: 'handle', contents: handleIcon(false) },
+      flips: true,
       x: 200,
       y,
       broadcast: MESSAGES.panel,
@@ -185,6 +181,7 @@ const MESSAGES = {
   solve: { id: 'msg-solve', name: 'solve' },
   register: { id: 'msg-register', name: 'register' },
   manual: { id: 'msg-manual', name: 'manual' },
+  adopt: { id: 'msg-adopt', name: 'adopt' },
   leave: { id: 'msg-leave', name: 'leave' },
   repaint: { id: 'msg-repaint', name: 'repaint' },
   panel: { id: 'msg-panel', name: 'panel' },
@@ -203,6 +200,7 @@ const VARIABLES = {
   cued: 'cued',
   progress: 'progress',
   sounded: 'sounded',
+  fit: 'fit',
   board: 'board',
   columns: 'columns',
   rows: 'rows',
@@ -219,6 +217,24 @@ const VARIABLES = {
   reason: 'reason',
   camera: 'camera',
 } as const;
+
+/**
+ * The profile, in the one container that can leave a Scratch project.
+ *
+ * A list monitor carries import and export in its own context menu, and those
+ * run from the operator's own click -- which a block cannot do, because a
+ * block runs on a timer and a browser will not open a file dialog for one. So
+ * the product of this whole app leaves through a list, and comes back the same
+ * way.
+ */
+const PROFILE_LIST = { id: 'list-profile', name: 'profile' } as const;
+
+/** Shown once the profile exists and has been handed to Camera Source. */
+const EXPORT_STATUS = [
+  '校正できました。camera-source に登録済みです。',
+  'ステージ左の profile リストを右クリック → 書き出す で、ファイルに保存できます。',
+  '読み込むときは、同じリストに 読み込む → i キー。',
+].join('   /   ');
 
 const IDLE_STATUS = [
   'c=もう一度始める',
@@ -289,7 +305,10 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
     '見え方が似すぎています。カメラに近づける・遠ざける、大きく傾ける、画面の端に寄せる、を試してください',
   ],
   ['solving', '計算しています'],
-  ['complete', '完了しました。pでcamera-sourceへ登録できます'],
+  [
+    'complete',
+    '完了しました。camera-source に登録し、profile リストに書き出しました',
+  ],
 ];
 
 const DISABLED_STATUS =
@@ -474,11 +493,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       script('key-solve', 600, 480, whenKeyPressed('v'), [
         broadcast(MESSAGES.solve.id, MESSAGES.solve.name),
       ]),
-      script('key-register', 840, 480, whenKeyPressed('p'), [
-        broadcast(MESSAGES.register.id, MESSAGES.register.name),
-      ]),
       script('key-leave', 1080, 480, whenKeyPressed('space'), [
         broadcast(MESSAGES.leave.id, MESSAGES.leave.name),
+      ]),
+      script('key-adopt', 1800, 480, whenKeyPressed('i'), [
+        broadcast(MESSAGES.adopt.id, MESSAGES.adopt.name),
       ]),
       script('key-manual', 1560, 480, whenKeyPressed('a'), [
         broadcast(MESSAGES.manual.id, MESSAGES.manual.name),
@@ -542,6 +561,38 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         }),
       ]),
       onBroadcast('do-register', 840, 640, MESSAGES.register, [
+        extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
+          CAMERA_ID: CAPTURE_CAMERA,
+        }),
+        // And put it where it can be taken away. This app exists to produce
+        // this one document; a calibration that only ever lives inside a
+        // running project has not been handed to anybody.
+        emptyList(PROFILE_LIST.id, PROFILE_LIST.name),
+        appendToList(
+          PROFILE_LIST.id,
+          PROFILE_LIST.name,
+          extensionReporter(CAMERA_CALIBRATION, 'cameraCalibrationJson', {
+            CAMERA_ID: CAPTURE_CAMERA,
+          }),
+        ),
+        showList(PROFILE_LIST.id, PROFILE_LIST.name),
+        setVariable(VARIABLES.status, 'status', EXPORT_STATUS),
+      ]),
+      // Taking one back. The list is filled by the operator through its own
+      // context menu -- the only door in a Scratch project that opens onto a
+      // file -- and this reads whatever came through it.
+      onBroadcast('do-adopt', 1800, 640, MESSAGES.adopt, [
+        {
+          ...extensionStep(CAMERA_CALIBRATION, 'importCameraCalibration', {
+            CAMERA_ID: CAPTURE_CAMERA,
+            JSON: '',
+          }),
+          reporters: {
+            JSON: listContents(PROFILE_LIST.id, PROFILE_LIST.name),
+          },
+        },
+        // Handing it to Camera Source is what makes it answerable: the
+        // conditions it has to fit are the ones Camera Source is holding.
         extensionStep(CAMERA_CALIBRATION, 'publishCameraCalibration', {
           CAMERA_ID: CAPTURE_CAMERA,
         }),
@@ -704,6 +755,26 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             ],
             VARIABLES.turnWords,
             'turn words',
+          ),
+          // Whether a profile fits the camera it is being used on.
+          //
+          // Three answers, and the third is not a softer no: `undetermined`
+          // means the check could not be made, and a profile that cannot be
+          // checked must not be described as usable. Camera Source withholds
+          // the intrinsics in that case; saying anything warmer here would be
+          // the app disagreeing with the thing that decides.
+          ...chain(
+            () =>
+              extensionReporter(CAMERA_SOURCE, 'cameraProfileCompatibility', {
+                CAMERA_ID: CAPTURE_CAMERA,
+              }),
+            [
+              ['compatible', 'このカメラに使えます'],
+              ['incompatible', '合いません（撮影条件が校正時と違います）'],
+              ['undetermined', '判定できません。使えるとは言えません'],
+            ],
+            VARIABLES.fit,
+            'fit',
           ),
           // What the operator should do next, while the shutter watches. Kept
           // apart from `code` on purpose: a frame the shutter declines is the
@@ -933,6 +1004,12 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ),
               ifThen(equals(readVariable(VARIABLES.ui, 'ui'), 'solved'), [
                 playSound(SOLVED_SOUND),
+                // Not a button. The session just produced the one thing this
+                // app exists to produce, for the camera it was produced from;
+                // there is no version of "no thanks" worth asking about. It
+                // used to say "press p", and pressing p did its work in
+                // silence, which is two mistakes in one line.
+                broadcast(MESSAGES.register.id, MESSAGES.register.name),
               ]),
             ],
           ),
@@ -979,6 +1056,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.cued]: ['cued', ''],
                 [VARIABLES.progress]: ['progress', 0],
                 [VARIABLES.sounded]: ['sounded', 0],
+                [VARIABLES.fit]: ['fit', ''],
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
@@ -993,7 +1071,9 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               }
             : {}),
         },
-        lists: {},
+        lists: embedExtensions
+          ? { [PROFILE_LIST.id]: [PROFILE_LIST.name, []] }
+          : {},
         broadcasts: embedExtensions
           ? Object.fromEntries(
               Object.values(MESSAGES).map((message) => [
@@ -1051,6 +1131,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             monitor(VARIABLES.code, 'code', 10, 130, ''),
             monitor(VARIABLES.camera, 'camera', 10, 154, ''),
             monitor(VARIABLES.reason, 'reason', 10, 178, ''),
+            monitor(VARIABLES.fit, 'fit', 10, 202, ''),
           ]
         : []),
     ],

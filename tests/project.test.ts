@@ -694,10 +694,69 @@ describe('the capture buttons', () => {
     expect(shownIn('ready+')).toContain('btn-solve');
   });
 
-  it('offers registering only once there is something to register', () => {
+  it('offers no button for the thing that is not a decision', () => {
+    // Registering the profile with Camera Source used to be a button, and a
+    // key, and a line of text telling the operator to press it. The session
+    // has just produced the one document this app exists to produce, for the
+    // camera it was produced from: there is no version of "no thanks" worth
+    // asking about. It happens when the solve lands.
     for (const ui of STATES) {
-      expect(shownIn(ui).includes('btn-register')).toBe(ui === 'solved');
+      expect(shownIn(ui)).not.toContain('btn-register');
     }
+    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
+    const solved = Object.values(stageBlocks).filter(
+      (block) => block.opcode === 'event_broadcast',
+    );
+    expect(
+      solved.some(
+        (block) =>
+          (
+            block.inputs.BROADCAST_INPUT as
+              [number, [number, string, string]] | undefined
+          )?.[1][2] === 'msg-register',
+      ),
+    ).toBe(true);
+  });
+
+  it('hands the profile somewhere it can be taken from', () => {
+    // A list monitor carries import and export in its own context menu, and
+    // those run from the operator's click. A block cannot open a file dialog:
+    // it runs on a timer, and a browser will not treat that as someone asking.
+    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
+    const stageLists = (
+      project.targets[0] as unknown as {
+        lists: Record<string, [string, unknown[]]>;
+      }
+    ).lists;
+    expect(Object.values(stageLists).map(([name]) => name)).toEqual([
+      'profile',
+    ]);
+    const writes = Object.values(stageBlocks).filter(
+      (block) => block.opcode === 'data_addtolist',
+    );
+    expect(writes.length).toBeGreaterThan(0);
+    const reads = Object.values(stageBlocks).filter(
+      (block) => block.opcode === 'data_itemoflist',
+    );
+    expect(reads.length).toBeGreaterThan(0);
+  });
+
+  it('never calls an unchecked profile usable', () => {
+    // Three answers, and the third is not a softer no. Camera Source withholds
+    // the intrinsics when it cannot decide, so anything warmer here would be
+    // the app disagreeing with the thing that decides.
+    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
+    const messages = Object.values(stageBlocks)
+      .filter((block) => block.opcode === 'data_setvariableto')
+      .map((block) => {
+        const value = block.inputs.VALUE as
+          [number, [number, string]] | undefined;
+        return Array.isArray(value) && Array.isArray(value[1])
+          ? value[1][1]
+          : '';
+      });
+    expect(messages).toContain('判定できません。使えるとは言えません');
+    expect(messages).toContain('このカメラに使えます');
   });
 
   it('never offers a sample outside a live session', () => {
