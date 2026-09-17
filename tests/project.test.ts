@@ -184,7 +184,7 @@ describe('the extension bundle', () => {
   // carries. Two prompts invite the operator to allow one and deny the other,
   // and a denied extension's opcodes are simply absent -- the project loads
   // and then does nothing, with no error to say why.
-  it('asks for the two extensions as one permission', () => {
+  it('asks for every extension as one permission', () => {
     const manifest = embeddedExtensions(
       EXTENSION_PINS.map(resolveExtension),
     ) as {
@@ -630,12 +630,67 @@ describe('the calibration path', () => {
       'kubohiroyacameracalibration_publishCameraCalibration',
     );
     expect(published).toBeGreaterThan(-1);
+    // Inside an `if`, after the publish: a profile brought in from a file
+    // reaches the same script, and its fit is judged against the running
+    // camera, so for that one the camera stays on.
+    const guard = scriptOrder(blocks, 'do-register').find(
+      (block, index) => index > published && block.opcode === 'control_if',
+    );
+    expect(texts(blocks, guard?.inputs.CONDITION)).toContain('adopted');
+    const inside: string[] = [];
+    let at: string | null =
+      (guard?.inputs.SUBSTACK as [number, string] | undefined)?.[1] ?? null;
+    while (at) {
+      const block: ScratchBlock | undefined = blocks[at];
+      if (!block) break;
+      inside.push(block.opcode);
+      at = block.next;
+    }
+    expect(inside).toEqual([
+      'kubohiroyacamerasource_hideCameraPreview',
+      'kubohiroyacamerasource_stopSharedCamera',
+    ]);
+  });
+
+  it('shows the profile as a QR code once it is in the list, and only when solved', () => {
+    // A file has to be carried to the next machine; a code on this screen is
+    // carried by holding a phone up to it.
+    const sprite = enabled.targets.find(
+      (target) => (target as { name?: string }).name === 'profile-qr',
+    ) as unknown as { blocks: Record<string, ScratchBlock> };
+    const shown = sprite.blocks['profile-qr-show-1'];
+    expect(shown?.opcode).toBe('control_if_else');
+    const condition = texts(sprite.blocks, shown?.inputs.CONDITION);
+    expect(condition).toContain('solved');
+    expect(condition).toContain('profile');
+    expect(condition).not.toContain('error');
+    // Not for a profile brought in from a file: its fit verdict sits where
+    // the code would be.
+    expect(condition).toContain('adopted');
+    const drawn = Object.values(sprite.blocks).find(
+      (block) => block.opcode === 'kubohiroyaqrdisplay_showQrCode',
+    );
+    const text = drawn?.inputs.TEXT as [number, string, unknown] | undefined;
+    expect(sprite.blocks[text?.[1] ?? '']?.opcode).toBe('data_itemoflist');
+    // Taken off on the flag as well as when the screen changes: the extension
+    // restores the costume on a stop, and a flag is a stop.
     expect(
-      order.indexOf('kubohiroyacamerasource_hideCameraPreview'),
-    ).toBeGreaterThan(published);
-    expect(
-      order.indexOf('kubohiroyacamerasource_stopSharedCamera'),
-    ).toBeGreaterThan(published);
+      Object.values(sprite.blocks).filter(
+        (block) => block.opcode === 'kubohiroyaqrdisplay_hideQrCode',
+      ),
+    ).toHaveLength(2);
+    // The repaint that draws it has to come after the list is filled.
+    const register = scriptOrder(blocks, 'do-register').map((block) =>
+      block.opcode === 'event_broadcast'
+        ? (
+            block.inputs.BROADCAST_INPUT as [number, [number, string, string]]
+          )[1][2]
+        : block.opcode,
+    );
+    expect(register.lastIndexOf('msg-repaint')).toBeGreaterThan(
+      register.indexOf('data_addtolist'),
+    );
+    expect(enabled.extensions).toContain('kubohiroyaqrdisplay');
   });
 
   it('offers a way back once a session is over, and only then', () => {
@@ -791,6 +846,7 @@ describe('what the operator is given', () => {
       'title-begin-7x5',
       'title-begin-5x4',
       'back',
+      'profile-qr',
       'guide-tilt',
     ]);
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;

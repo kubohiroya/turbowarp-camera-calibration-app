@@ -79,6 +79,7 @@ import {
 import {
   backButtonTarget,
   guideTarget,
+  profileQrTarget,
   onBroadcast,
   titleButtonTarget,
   uiIs,
@@ -168,6 +169,7 @@ function titleFacts() {
 
 const CAMERA_SOURCE = 'kubohiroyacamerasource';
 const CAMERA_CALIBRATION = 'kubohiroyacameracalibration';
+const QR_DISPLAY = 'kubohiroyaqrdisplay';
 
 /** The camera this project calibrates. Shared with every other consumer. */
 const CAPTURE_CAMERA = 'default';
@@ -252,8 +254,7 @@ const PROFILE_LIST = { id: 'list-profile', name: 'profile' } as const;
  * One sentence, because it is the only thing left to do. Registration has
  * already happened and is not the operator's business; the file is.
  */
-const EXPORT_STATUS =
-  '校正できました。profile リストを右クリック →「書き出し」で保存できます';
+const EXPORT_STATUS = '校正できました。QRを読むか、リストを書き出してください';
 
 const IDLE_STATUS = '緑の旗で最初の画面に戻ります';
 
@@ -493,12 +494,24 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         // Nothing is being looked at any more. A live picture after the finish
         // invites the operator to keep holding the board up, and a camera kept
         // running keeps its light on for nothing.
-        extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
-        extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
-          CAMERA_ID: CAPTURE_CAMERA,
-        }),
+        //
+        // Not for a profile brought in from a file, which reaches here the same
+        // way: its fit is judged against the running camera, and a stopped
+        // camera reports nothing to judge against.
+        ifThen(
+          not(equals(readVariable(VARIABLES.adopted, 'adopted'), 'true')),
+          [
+            extensionStep(CAMERA_SOURCE, 'hideCameraPreview', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+            extensionStep(CAMERA_SOURCE, 'stopSharedCamera', {
+              CAMERA_ID: CAPTURE_CAMERA,
+            }),
+          ],
+        ),
+        // The list holds the profile only from here, and the QR code is drawn
+        // from the list. The repaint that followed the solve came too early.
+        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
       ]),
       // Taking one back. The list is filled by the operator through its own
       // context menu -- the only door in a Scratch project that opens onto a
@@ -1184,6 +1197,37 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               MESSAGES.repaint,
               sessionOver(),
             ),
+            profileQrTarget(
+              profileQrCostume(),
+              md5(profileQrCostume().contents),
+              PROFILE_QR_AT,
+              PROFILE_QR_SIZE,
+              titleButtons().length + 3,
+              MESSAGES.repaint,
+              both(
+                equals(readVariable(VARIABLES.screen, 'screen'), 'capture'),
+                both(
+                  uiIs('solved'),
+                  both(
+                    greaterThan(
+                      lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name),
+                      '0',
+                    ),
+                    // A profile brought in from a file came from somewhere
+                    // that already has it, and its fit verdict takes the
+                    // space the code would cover.
+                    not(
+                      equals(
+                        readVariable(VARIABLES.adopted, 'adopted'),
+                        'true',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              listContents(PROFILE_LIST.id, PROFILE_LIST.name),
+              QR_DISPLAY,
+            ),
             guideTarget(
               guideCostumes(),
               guideCostumes().map((costume) => md5(costume.contents)),
@@ -1253,6 +1297,27 @@ function sessionOver(): Reporter {
     not(both(not(uiIs('solved')), not(uiIs('error')))),
   );
 }
+
+/**
+ * The QR code's own costume, worn only while no code is up -- which is never
+ * while the sprite is shown. Two transparent units, so a sprite that did show
+ * without its code would show nothing.
+ */
+export function profileQrCostume(): { name: string; contents: string } {
+  return {
+    name: 'blank',
+    contents:
+      '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"/>\n',
+  };
+}
+
+/**
+ * Right of the profile list and above the way back. The extension draws the
+ * code 320 units wide; at this size it stays clear of both and of the status
+ * line along the top.
+ */
+const PROFILE_QR_AT = { x: 100, y: -8 };
+const PROFILE_QR_SIZE = 78;
 
 /** Bottom right, clear of the monitors, which stack down the left. */
 const BACK_BUTTON_AT = { x: 170, y: -150 };

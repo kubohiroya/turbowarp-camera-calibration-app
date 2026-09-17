@@ -45,6 +45,14 @@ export const EXTENSION_PINS: readonly ExtensionPin[] = [
     artifact: 'dist/camera-calibration.js',
     apiManifest: 'dist/extension-manifest.json',
   },
+  // Hands the profile to another machine by being looked at. Last, because
+  // nothing else here depends on it.
+  {
+    id: 'kubohiroyaqrdisplay',
+    packageName: '@kubohiroya/turbowarp-qr-display',
+    artifact: 'dist/qr-display.js',
+    apiManifest: 'dist/extension-manifest.json',
+  },
 ];
 
 export interface ResolvedExtension extends ExtensionPin {
