@@ -198,6 +198,54 @@ export function titleButtonTarget(
   };
 }
 
+/**
+ * The way back to the opening screen, once a session is over.
+ *
+ * Offered only when `when` holds -- the session solved or failed, and its
+ * screen up -- so it is never a way to stop a session that is still running.
+ * It says "back" rather than "stop" for that reason.
+ */
+export function backButtonTarget(
+  costume: { name: string; contents: string },
+  assetId: string,
+  at: { x: number; y: number },
+  message: { id: string; name: string },
+  layerOrder: number,
+  repaint: { id: string; name: string },
+  when: Reporter,
+): Record<string, unknown> {
+  const target = titleButtonTarget(
+    'back',
+    costume,
+    assetId,
+    at,
+    message,
+    layerOrder,
+    repaint,
+    { width: 96, height: 40 },
+  ) as { blocks: BlockMap };
+  const settle = [ifElse(when, [show], [hide])];
+  return {
+    ...target,
+    blocks: {
+      ...script(
+        'back-show',
+        48,
+        48,
+        whenBroadcastReceived(repaint.id, repaint.name),
+        settle,
+      ),
+      ...script('back-start', 48, 200, whenFlagClicked(), [hide]),
+      ...script('back-click', 48, 320, whenSpriteClicked(), [
+        {
+          opcode: 'event_broadcast',
+          inputs: { BROADCAST_INPUT: [1, [11, message.name, message.id]] },
+        },
+      ]),
+    },
+  };
+}
+
 /** `ui` is the one token every button tests against. */
 export function uiIs(value: string): Reporter {
   return equals(readVariable('ui', 'ui'), value);

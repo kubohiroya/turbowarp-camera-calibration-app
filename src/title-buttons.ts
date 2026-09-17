@@ -49,4 +49,14 @@ export function startButton(columns: number, rows: number): string {
   return button(`${columns}x${rows}`, GO, GO_EDGE);
 }
 
+/**
+ * Back to the opening screen, once a session is over.
+ *
+ * Not a title-screen control, but drawn the same way: it is the same kind of
+ * decision, made by someone who has put the board down.
+ */
+export function backButton(): string {
+  return button('戻る', PLATE, EDGE);
+}
+
 export const TITLE_BUTTON_SIZE = { width: WIDTH, height: HEIGHT };
