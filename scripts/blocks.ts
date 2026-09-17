@@ -166,6 +166,14 @@ export function showList(id: string, name: string): Step {
   return { opcode: 'data_showlist', fields: { LIST: list(id, name) } };
 }
 
+export function hideList(id: string, name: string): Step {
+  return { opcode: 'data_hidelist', fields: { LIST: list(id, name) } };
+}
+
+export function lengthOfList(id: string, name: string): Reporter {
+  return { opcode: 'data_lengthoflist', fields: { LIST: list(id, name) } };
+}
+
 /** Everything in the list, run together. What was exported, read back. */
 export function listContents(id: string, name: string): Reporter {
   return {

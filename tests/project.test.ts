@@ -89,26 +89,38 @@ describe('the project', () => {
     // the result in the backdrop's coordinates, where both are measured.
     const svgY = (stageY: number) => 180 - stageY;
     const buttons = titleButtons();
-    const boards = buttons.filter((button) =>
-      button.name.startsWith('title-board'),
-    );
-    const begin = buttons.find((button) => button.name === 'title-begin');
-    expect(boards).toHaveLength(3);
-    for (const button of boards) {
-      const top = svgY(button.y) - button.size.height / 2;
-      const bottom = svgY(button.y) + button.size.height / 2;
-      expect(top, button.name).toBeGreaterThan(TITLE_LAYOUT.boardLabelY);
-      expect(bottom, button.name).toBeLessThan(TITLE_LAYOUT.beginLabelY - 11);
-      const left = button.x + 240 - button.size.width / 2;
-      const right = button.x + 240 + button.size.width / 2;
-      expect(left).toBeGreaterThanOrEqual(0);
-      expect(right).toBeLessThanOrEqual(480);
+    const rows = {
+      board: buttons.filter((button) => button.name.startsWith('title-board')),
+      begin: buttons.filter((button) => button.name.startsWith('title-begin')),
+    };
+    expect(rows.board).toHaveLength(3);
+    expect(rows.begin).toHaveLength(3);
+    const edges = (button: (typeof buttons)[number]) => ({
+      top: svgY(button.y) - button.size.height / 2,
+      bottom: svgY(button.y) + button.size.height / 2,
+      left: button.x + 240 - button.size.width / 2,
+      right: button.x + 240 + button.size.width / 2,
+    });
+    for (const button of rows.board) {
+      const box = edges(button);
+      expect(box.top, button.name).toBeGreaterThan(TITLE_LAYOUT.boardLabelY);
+      expect(box.bottom, button.name).toBeLessThan(
+        TITLE_LAYOUT.beginLabelY - 11,
+      );
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.right).toBeLessThanOrEqual(480);
     }
-    expect(begin).toBeDefined();
-    const beginTop = svgY(begin?.y ?? 0) - (begin?.size.height ?? 0) / 2;
-    const beginBottom = svgY(begin?.y ?? 0) + (begin?.size.height ?? 0) / 2;
-    expect(beginTop).toBeGreaterThan(TITLE_LAYOUT.beginLabelY);
-    expect(beginBottom).toBeLessThanOrEqual(360);
+    for (const button of rows.begin) {
+      const box = edges(button);
+      expect(box.top, button.name).toBeGreaterThan(TITLE_LAYOUT.beginLabelY);
+      expect(box.bottom, button.name).toBeLessThanOrEqual(360);
+      expect(box.right).toBeLessThanOrEqual(480);
+    }
+    // The same board in the same column on both rows, so the sheet the
+    // operator printed is found by looking straight down.
+    for (const [index, board] of rows.board.entries()) {
+      expect(rows.begin[index]?.x).toBe(board.x);
+    }
   });
 
   it('gives every costume a size Scratch can read', () => {
@@ -287,28 +299,6 @@ describe('the calibration path', () => {
         expect(declared, `${block.opcode}.${name}`).toContain(name);
       }
     }
-  });
-
-  it('finds the board the operator is holding, and carries its size', () => {
-    // Three sheets, and only the chosen one is looked for -- which used to be
-    // three keys and a line explaining them. Holding the wrong one is not
-    // silence though: the markers are seen and do not make this board, and
-    // that is enough to try the next one.
-    const hunt = scriptOrder(blocks, 'do-hunt');
-    expect(hunt[0]?.opcode).toBe('event_whenbroadcastreceived');
-    const written = Object.values(blocks)
-      .filter((block) => block.opcode === 'data_setvariableto')
-      .map((block) => (block.fields.VARIABLE as [string, string])[0]);
-    // Each hop sets the size along with the counts: a board left with the
-    // previous sheet's millimetres measures a sheet nobody is holding.
-    for (const name of ['board', 'columns', 'rows', 'square', 'marker']) {
-      expect(written.filter((entry) => entry === name).length).toBeGreaterThan(
-        1,
-      );
-    }
-    // And the sizes really differ, or none of this would matter.
-    const sizes = BOARDS.map((board) => printedCellMillimetres(board));
-    expect(new Set(sizes).size).toBe(BOARDS.length);
   });
 
   it('declares the size the sheet actually prints at', () => {
@@ -494,17 +484,40 @@ describe('the calibration path', () => {
 
   it('opens on a screen that says what this is and what to fetch', () => {
     // The operator arrives knowing nothing and has one decision to make --
-    // does this machine show the board, or calibrate a camera -- which nothing
-    // in the app was asking them. The flag opens that screen; the screen
-    // starts the calibration.
+    // does this machine show the board, or calibrate a camera, and against
+    // which sheet. The flag opens that screen; a button there starts.
     const startup = scriptOrder(blocks, 'start');
     expect(startup[0]?.opcode).toBe('event_whenflagclicked');
     expect(startup.map((block) => block.opcode)).toContain(
       'looks_switchbackdropto',
     );
-    const begin = scriptOrder(blocks, 'do-begin').map((block) => block.opcode);
-    expect(begin[0]).toBe('event_whenbroadcastreceived');
-    expect(begin).toContain('event_broadcast');
+    for (const [index] of BOARDS.entries()) {
+      const begin = scriptOrder(blocks, `do-begin-${index}`).map(
+        (block) => block.opcode,
+      );
+      expect(begin[0]).toBe('event_whenbroadcastreceived');
+      expect(begin).toContain('event_broadcast');
+    }
+  });
+
+  it('starts against the board the operator chose', () => {
+    // It used to start on the first board and hunt for the right one, which
+    // gave no way to say up front which sheet was in hand.
+    for (const [index, board] of BOARDS.entries()) {
+      const written = new Map(
+        scriptOrder(blocks, `do-begin-${index}`)
+          .filter((block) => block.opcode === 'data_setvariableto')
+          .map((block) => [
+            (block.fields.VARIABLE as [string, string])[0],
+            (block.inputs.VALUE as [number, [number, string]])[1][1],
+          ]),
+      );
+      expect(written.get('board')).toBe(`${board.columns}x${board.rows}`);
+      expect(Number(written.get('square'))).toBeCloseTo(
+        printedCellMillimetres(board) / 1000,
+        4,
+      );
+    }
   });
 
   it('goes back to the opening screen when the board is clicked', () => {
@@ -529,15 +542,22 @@ describe('the calibration path', () => {
     expect(inside).toContain('looks_switchbackdropto');
   });
 
-  it('puts nothing on top of a board being shown', () => {
-    // The monitors sit in the corner and the status line runs across the
-    // stage -- over the quiet zone and the first markers, which is what the
-    // camera on the other machine has to read.
-    for (const [index] of BOARDS.entries()) {
-      const hidden = scriptOrder(blocks, `do-show-${index}`)
-        .filter((block) => block.opcode === 'data_hidevariable')
-        .map((block) => (block.fields.VARIABLE as [string, string])[0]);
-      expect(hidden).toEqual(['board', 'status']);
+  it('decides what is on screen in one place', () => {
+    // It was decided in six, and between them some monitors stayed on screens
+    // they had no business on -- over the opening screen, and over a board,
+    // where a monitor covers the corner a camera on another machine is trying
+    // to read. Nothing shows or hides a monitor outside the one rule now.
+    const toggles = Object.entries(blocks).filter(([, block]) =>
+      [
+        'data_showvariable',
+        'data_hidevariable',
+        'data_showlist',
+        'data_hidelist',
+      ].includes(block.opcode),
+    );
+    expect(toggles.length).toBeGreaterThan(0);
+    for (const [id] of toggles) {
+      expect(id.startsWith('watch-'), id).toBe(true);
     }
   });
 
@@ -655,7 +675,9 @@ describe('what the operator is given', () => {
       'title-board-9x6',
       'title-board-7x5',
       'title-board-5x4',
-      'title-begin',
+      'title-begin-9x6',
+      'title-begin-7x5',
+      'title-begin-5x4',
       'guide-tilt',
     ]);
     const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
@@ -696,33 +718,16 @@ describe('what the operator is given', () => {
     expect(reads.length).toBeGreaterThan(0);
   });
 
-  it('shows only what the operator needs, and speaks when there is a reason', () => {
-    // The numbers were on screen because they were useful to whoever was
-    // debugging, which is not who is holding the board. What they were read
-    // for -- progress -- is a sound now. What is left is a reason for a
-    // failure, which is worth the space exactly when there is one.
+  it('shows nothing until a calibration starts', () => {
+    // The opening screen says what it needs to in its own drawing, so every
+    // monitor starts hidden in this build and the rule shows them once a
+    // calibration is under way.
     const monitors = (
       project as unknown as {
         monitors: Array<{ params: { VARIABLE: string }; visible: boolean }>;
       }
     ).monitors;
-    const showing = monitors
-      .filter((entry) => entry.visible)
-      .map((entry) => entry.params.VARIABLE);
-    expect(showing).toEqual(['board', 'status']);
-
-    const stageBlocks = stage.blocks as Record<string, ScratchBlock>;
-    const toggled = new Set(
-      Object.values(stageBlocks)
-        .filter(
-          (block) =>
-            block.opcode === 'data_showvariable' ||
-            block.opcode === 'data_hidevariable',
-        )
-        .map((block) => (block.fields.VARIABLE as [string, string])[0]),
-    );
-    expect(toggled).toContain('reason');
-    expect(toggled).toContain('fit');
+    expect(monitors.filter((entry) => entry.visible)).toEqual([]);
   });
 
   it('never calls an unchecked profile usable', () => {
@@ -739,7 +744,9 @@ describe('what the operator is given', () => {
           ? value[1][1]
           : '';
       });
-    expect(messages).toContain('判定できません。使えるとは言えません');
+    expect(messages).toContain(
+      '確かめられません（撮影条件が分かりません）。このプロファイルは適用されません',
+    );
     expect(messages).toContain('このカメラに使えます');
   });
 

@@ -60,7 +60,9 @@ import {
   script,
   setVariable,
   setVariableFrom,
+  hideList,
   hideVariable,
+  lengthOfList,
   showList,
   showVariable,
   switchBackdrop,
@@ -187,8 +189,10 @@ const MESSAGES = {
   adopt: { id: 'msg-adopt', name: 'adopt' },
   repaint: { id: 'msg-repaint', name: 'repaint' },
   flash: { id: 'msg-flash', name: 'flash' },
-  hunt: { id: 'msg-hunt', name: 'hunt' },
-  begin: { id: 'msg-begin', name: 'begin' },
+  beginBoard: BOARDS.map((board) => ({
+    id: `msg-begin-${board.columns}x${board.rows}`,
+    name: `begin ${board.columns}x${board.rows}`,
+  })),
   showBoard: BOARDS.map((board) => ({
     id: `msg-show-${board.columns}x${board.rows}`,
     name: `show ${board.columns}x${board.rows}`,
@@ -206,8 +210,8 @@ const VARIABLES = {
   turn: 'turn',
   turnWords: 'turn-words',
   cued: 'cued',
-  hunted: 'hunted',
   screen: 'screen',
+  shown: 'shown',
   progress: 'progress',
   sounded: 'sounded',
   fit: 'fit',
@@ -279,7 +283,7 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
     'wrong-board',
     join(
       join('別の板のようです。選択中は ', selectedBoard()),
-      ' です。その板をかざすか、1/2/3 で選び直してください',
+      ' です。緑の旗で最初の画面に戻り、持っている板を選んでください',
     ),
   ],
   ['hold-steadier', 'ぶれています。少し止めるか、近づけてください'],
@@ -416,10 +420,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           ]
         : []),
       setVariable(VARIABLES.status, 'status', `${title}: ${opening}`),
-      showVariable(VARIABLES.board, 'board'),
-      showVariable(VARIABLES.status, 'status'),
-      // The one thing the operator reads while their hands are busy.
-      ...(embedExtensions ? [showVariable(VARIABLES.advice, 'advice')] : []),
       // The flag opens the app, and the app opens on a screen that says what
       // it is and what the operator has to fetch. One decision is asked there
       // and nowhere else: whether this machine shows the board or calibrates a
@@ -428,6 +428,8 @@ export function createProject(title: string, options: ProjectOptions = {}) {
       ...(embedExtensions
         ? [
             setVariable(VARIABLES.screen, 'screen', 'title'),
+            // Forces the monitor rule to run on the first pass.
+            setVariable(VARIABLES.shown, 'shown', ''),
             switchBackdrop(titleBackdropName),
           ]
         : [switchBackdrop(backdropName)]),
@@ -495,7 +497,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             CAMERA_ID: CAPTURE_CAMERA,
           }),
         ),
-        showList(PROFILE_LIST.id, PROFILE_LIST.name),
         setVariable(VARIABLES.status, 'status', EXPORT_STATUS),
       ]),
       // Taking one back. The list is filled by the operator through its own
@@ -536,12 +537,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               `${board.columns}x${board.rows}`,
             ),
             switchBackdrop(boardBackdropName(board.columns, board.rows)),
-            // Nothing on top of the board. The monitors sit in the top-left
-            // corner, and the status line runs across the width of the stage
-            // -- over the quiet zone and the first row of markers, which is
-            // exactly what the camera on the other machine is trying to read.
-            hideVariable(VARIABLES.board, 'board'),
-            hideVariable(VARIABLES.status, 'status'),
             broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
           ]),
         ];
@@ -558,67 +553,45 @@ export function createProject(title: string, options: ProjectOptions = {}) {
           setVariable(VARIABLES.screen, 'screen', 'title'),
           switchBackdrop(titleBackdropName),
           setVariable(VARIABLES.status, 'status', IDLE_STATUS),
-          showVariable(VARIABLES.board, 'board'),
-          showVariable(VARIABLES.status, 'status'),
           broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
         ]),
       ]),
-      // And the other role.
-      onBroadcast('do-begin', 3000, 640, MESSAGES.begin, [
-        setVariable(VARIABLES.screen, 'screen', 'capture'),
-        switchBackdrop(backdropName),
-        broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
-        broadcast(MESSAGES.start.id, MESSAGES.start.name),
-      ]),
-
-      // The board finds itself.
+      // And the other role, for a named board.
       //
-      // Three sheets come out of the page and only the chosen one is looked
-      // for, which used to mean three keys and a line of text explaining
-      // them. But holding the wrong one is not silence: the markers are seen
-      // and they do not make this board, which the extension says as
-      // `wrong-board`. That is enough to work out which sheet is in front of
-      // the camera -- try the next one.
-      //
-      // Only on `wrong-board`. An empty frame says nothing about which board
-      // the operator has, so cycling then would be guessing, and would keep
-      // restarting a session that was about to be handed a board.
-      onBroadcast('do-hunt', 2040, 640, MESSAGES.hunt, [
-        ...BOARDS.flatMap((choice, index) => {
-          const next = BOARDS[(index + 1) % BOARDS.length] ?? choice;
-          return [
-            ifThen(
-              equals(
-                readVariable(VARIABLES.board, 'board'),
-                `${choice.columns}x${choice.rows}`,
-              ),
-              [
-                setVariable(
-                  VARIABLES.board,
-                  'board',
-                  `${next.columns}x${next.rows}`,
-                ),
-                setVariable(VARIABLES.columns, 'columns', String(next.columns)),
-                setVariable(VARIABLES.rows, 'rows', String(next.rows)),
-                setVariable(
-                  VARIABLES.square,
-                  'square',
-                  declaredSizes(next).square,
-                ),
-                setVariable(
-                  VARIABLES.marker,
-                  'marker',
-                  declaredSizes(next).marker,
-                ),
-              ],
+      // One start button per board, the way there is one display button per
+      // board. The operator knows which sheet they printed, and it is the one
+      // thing the session is fixed to when it begins: starting on the first
+      // board and hunting for the right one worked only when the wrong sheet
+      // was clearly in frame, and gave no way to say it up front.
+      ...BOARDS.flatMap((board, index) => {
+        const message = MESSAGES.beginBoard[index];
+        if (!message) return [];
+        return [
+          onBroadcast(`do-begin-${index}`, 3000 + index * 240, 640, message, [
+            setVariable(
+              VARIABLES.board,
+              'board',
+              `${board.columns}x${board.rows}`,
             ),
-          ];
-        }),
-        // A session is fixed to one board when it starts, so trying another
-        // means starting again. Nothing is lost: this only runs while nothing
-        // has been collected.
-        broadcast(MESSAGES.start.id, MESSAGES.start.name),
-      ]),
+            setVariable(VARIABLES.columns, 'columns', String(board.columns)),
+            setVariable(VARIABLES.rows, 'rows', String(board.rows)),
+            setVariable(
+              VARIABLES.square,
+              'square',
+              declaredSizes(board).square,
+            ),
+            setVariable(
+              VARIABLES.marker,
+              'marker',
+              declaredSizes(board).marker,
+            ),
+            setVariable(VARIABLES.screen, 'screen', 'capture'),
+            switchBackdrop(backdropName),
+            broadcast(MESSAGES.repaint.id, MESSAGES.repaint.name),
+            broadcast(MESSAGES.start.id, MESSAGES.start.name),
+          ]),
+        ];
+      }),
 
       // Guidance for the ear, on a loop of its own.
       //
@@ -657,19 +630,6 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ),
               playSound(CLICK_SOUND),
             ],
-          ),
-          // Holding the wrong sheet: try the next board. Once per pass of this
-          // loop, which is slow enough that a session gets a moment to look
-          // before it is restarted again.
-          ifThen(
-            both(
-              equals(
-                readVariable(VARIABLES.guidance, 'guidance'),
-                'wrong-board',
-              ),
-              equals(readVariable(VARIABLES.samples, 'samples'), '0'),
-            ),
-            [broadcast(MESSAGES.hunt.id, MESSAGES.hunt.name)],
           ),
           // Faster the closer the view is to one worth keeping: about twice a
           // second at nothing, twenty at everything. The number is how much
@@ -783,11 +743,19 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               }),
             [
               ['compatible', 'このカメラに使えます'],
-              ['incompatible', '合いません（撮影条件が校正時と違います）'],
-              ['undetermined', '判定できません。使えるとは言えません'],
+              [
+                'incompatible',
+                '使えません。撮影条件が、校正したときと違います',
+              ],
+              // Says what follows, not only what is unknown: the operator's
+              // question is whether they can use it, and the answer is no.
+              [
+                'undetermined',
+                '確かめられません（撮影条件が分かりません）。このプロファイルは適用されません',
+              ],
             ],
             VARIABLES.fit,
-            'fit',
+            'プロファイルの適合',
           ),
           // What the operator should do next, while the shutter watches. Kept
           // apart from `code` on purpose: a frame the shutter declines is the
@@ -1005,18 +973,21 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               broadcast(MESSAGES.flash.id, MESSAGES.flash.name),
             ],
           ),
-          // Shown when there is something to read, hidden when there is not.
-          // A reason that is always on screen is furniture; one that appears
-          // is a message.
-          ifElse(
-            equals(readVariable(VARIABLES.reason, 'reason'), ''),
-            [hideVariable(VARIABLES.reason, 'reason')],
-            [showVariable(VARIABLES.reason, 'reason')],
-          ),
-          ifElse(
-            equals(readVariable(VARIABLES.fit, 'fit'), ''),
-            [hideVariable(VARIABLES.fit, 'fit')],
-            [showVariable(VARIABLES.fit, 'fit')],
+          // What is on screen, decided in one place from what screen this is.
+          //
+          // It was decided in six: shown at the flag, hidden when a board went
+          // up, shown again on the way back, toggled every pass for two of
+          // them, and shown once more when a profile arrived. Each was right
+          // about the moment it was written for, and between them some
+          // monitors stayed on screens they had no business on. So nothing
+          // shows or hides a monitor except this, and this runs only when the
+          // answer can have changed.
+          ifThen(
+            not(equals(readVariable(VARIABLES.shown, 'shown'), monitorsKey())),
+            [
+              setVariableFrom(VARIABLES.shown, 'shown', monitorsKey()),
+              ...applyMonitors(),
+            ],
           ),
           // Said out loud, once, when it becomes true.
           //
@@ -1089,11 +1060,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
                 [VARIABLES.turn]: ['turn', ''],
                 [VARIABLES.turnWords]: ['turn words', ''],
                 [VARIABLES.cued]: ['cued', ''],
-                [VARIABLES.hunted]: ['hunted', ''],
                 [VARIABLES.screen]: ['screen', 'title'],
+                [VARIABLES.shown]: ['shown', ''],
                 [VARIABLES.progress]: ['progress', 0],
                 [VARIABLES.sounded]: ['sounded', 0],
-                [VARIABLES.fit]: ['fit', ''],
+                [VARIABLES.fit]: ['プロファイルの適合', ''],
                 [VARIABLES.square]: ['square', declaredSizes(board).square],
                 [VARIABLES.marker]: ['marker', declaredSizes(board).marker],
                 [VARIABLES.guidance]: ['guidance', ''],
@@ -1181,8 +1152,11 @@ export function createProject(title: string, options: ProjectOptions = {}) {
         10,
         10,
         `${board.columns}x${board.rows}`,
+        // Hidden until a calibration starts, in the build that opens on a
+        // screen that says everything itself.
+        !embedExtensions,
       ),
-      monitor(VARIABLES.status, 'status', 10, 34, opening),
+      monitor(VARIABLES.status, 'status', 10, 34, opening, !embedExtensions),
       ...(embedExtensions
         ? [
             // Off at the start and shown only when they have something to
@@ -1192,7 +1166,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
             // is left of them is a reason for a failure, which is worth the
             // space exactly when there is one.
             monitor(VARIABLES.reason, 'reason', 10, 58, '', false),
-            monitor(VARIABLES.fit, 'fit', 10, 82, '', false),
+            monitor(VARIABLES.fit, 'プロファイルの適合', 10, 82, '', false),
             monitor(VARIABLES.samples, 'samples', 10, 106, 0, false),
             monitor(VARIABLES.quality, 'quality', 10, 130, 0, false),
             monitor(VARIABLES.reprojection, 'error px', 10, 154, 0, false),
@@ -1213,6 +1187,70 @@ export function createProject(title: string, options: ProjectOptions = {}) {
     ),
     meta: { semver: '3.0.0', vm: '11.3.0', agent: 'turbowarp-app-template' },
   };
+}
+
+/**
+ * What decides which monitors are on screen. Changes only when the answer can.
+ */
+function monitorsKey(): Reporter {
+  return join(
+    readVariable(VARIABLES.screen, 'screen'),
+    join(
+      equals(readVariable(VARIABLES.reason, 'reason'), ''),
+      join(
+        equals(readVariable(VARIABLES.fit, 'プロファイルの適合'), ''),
+        lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name),
+      ),
+    ),
+  );
+}
+
+/**
+ * The one rule for what is on screen.
+ *
+ * On the opening screen and on a board, nothing: the opening screen says what
+ * it needs to in its own drawing, and a board with a monitor on it is a board
+ * with its corner covered, on the one screen a camera is trying to read.
+ *
+ * During a calibration, the three things the operator reads -- which board,
+ * what the keys do, what to do next -- and the others only when they have
+ * something in them: a reason when something went wrong, the profile when
+ * there is one to take away, and its fit when there is a verdict.
+ */
+function applyMonitors(): Step[] {
+  const capturing = () =>
+    equals(readVariable(VARIABLES.screen, 'screen'), 'capture');
+  const whenFilled = (id: string, name: string): Step =>
+    ifElse(
+      both(capturing(), not(equals(readVariable(id, name), ''))),
+      [showVariable(id, name)],
+      [hideVariable(id, name)],
+    );
+  return [
+    ifElse(
+      capturing(),
+      [
+        showVariable(VARIABLES.board, 'board'),
+        showVariable(VARIABLES.status, 'status'),
+        showVariable(VARIABLES.advice, 'advice'),
+      ],
+      [
+        hideVariable(VARIABLES.board, 'board'),
+        hideVariable(VARIABLES.status, 'status'),
+        hideVariable(VARIABLES.advice, 'advice'),
+      ],
+    ),
+    whenFilled(VARIABLES.reason, 'reason'),
+    whenFilled(VARIABLES.fit, 'プロファイルの適合'),
+    ifElse(
+      both(
+        capturing(),
+        greaterThan(lengthOfList(PROFILE_LIST.id, PROFILE_LIST.name), '0'),
+      ),
+      [showList(PROFILE_LIST.id, PROFILE_LIST.name)],
+      [hideList(PROFILE_LIST.id, PROFILE_LIST.name)],
+    ),
+  ];
 }
 
 /**
@@ -1277,37 +1315,35 @@ export function titleButtons(): ReadonlyArray<{
   size: { width: number; height: number };
 }> {
   const width = TITLE_BUTTON_SIZE.width;
-  const boards = BOARDS.map((board, index) => {
-    const message = MESSAGES.showBoard[index];
-    const left = TITLE_LAYOUT.left + index * (width + TITLE_LAYOUT.gap);
-    const centre = toStage(left + width / 2, TITLE_LAYOUT.boardRowY);
-    return {
-      name: `title-board-${board.columns}x${board.rows}`,
-      costume: {
-        name: `board-${board.columns}x${board.rows}`,
-        contents: boardButton(board.columns, board.rows),
-      },
-      x: centre.x,
-      y: centre.y,
-      message: message ?? MESSAGES.begin,
-      size: TITLE_BUTTON_SIZE,
-    };
-  });
-  const beginWidth = 160;
-  const begin = toStage(
-    TITLE_LAYOUT.left + beginWidth / 2,
-    TITLE_LAYOUT.beginRowY,
-  );
+  // Two rows of the same three boards: show one, or calibrate against one.
+  // The rows line up so the board the operator printed is in the same column
+  // on both.
+  const row = (
+    kind: 'board' | 'begin',
+    y: number,
+    messages: ReadonlyArray<{ id: string; name: string }>,
+    draw: (columns: number, rows: number) => string,
+  ) =>
+    BOARDS.map((board, index) => {
+      const left = TITLE_LAYOUT.left + index * (width + TITLE_LAYOUT.gap);
+      const centre = toStage(left + width / 2, y);
+      const message = messages[index];
+      if (!message) throw new Error(`No ${kind} message for board ${index}.`);
+      return {
+        name: `title-${kind}-${board.columns}x${board.rows}`,
+        costume: {
+          name: `${kind}-${board.columns}x${board.rows}`,
+          contents: draw(board.columns, board.rows),
+        },
+        x: centre.x,
+        y: centre.y,
+        message,
+        size: TITLE_BUTTON_SIZE,
+      };
+    });
   return [
-    ...boards,
-    {
-      name: 'title-begin',
-      costume: { name: 'begin', contents: startButton() },
-      x: begin.x,
-      y: begin.y,
-      message: MESSAGES.begin,
-      size: { width: beginWidth, height: TITLE_BUTTON_SIZE.height },
-    },
+    ...row('board', TITLE_LAYOUT.boardRowY, MESSAGES.showBoard, boardButton),
+    ...row('begin', TITLE_LAYOUT.beginRowY, MESSAGES.beginBoard, startButton),
   ];
 }
 
