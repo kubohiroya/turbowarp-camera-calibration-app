@@ -799,8 +799,90 @@ describe('the calibration path', () => {
       expect(overlaps(box, status)).toBe(false);
     }
     expect(overlaps(qrBox, backBox)).toBe(false);
+    // The fit and the reason sit below the status, clear of the list and the
+    // way back. The fit is shown only when the code is not, so it may use the
+    // code's place.
+    const monitors = (
+      enabled as unknown as {
+        monitors: Array<{ id: string; x: number; y: number }>;
+      }
+    ).monitors;
+    const placed = (id: string, width: number, height: number) => {
+      const entry = monitors.find((monitor) => monitor.id === id);
+      expect(entry, id).toBeDefined();
+      return {
+        left: entry?.x ?? 0,
+        top: entry?.y ?? 0,
+        right: 480,
+        bottom: (entry?.y ?? 0) + height,
+      };
+    };
+    // Measured in TurboWarp with the longest texts: the undetermined verdict
+    // is 44 pixels tall, a three-part capture-condition reason 64. The
+    // allowances here are larger, for fonts that set a little bigger.
+    const fitBox = placed('fit', 0, 60);
+    const reasonBox = placed('reason', 0, 80);
+    for (const box of [fitBox, reasonBox]) {
+      expect(overlaps(box, status)).toBe(false);
+      expect(overlaps(box, listBox)).toBe(false);
+      expect(overlaps(box, backBox)).toBe(false);
+    }
+    expect(overlaps(fitBox, reasonBox)).toBe(false);
     expect(overlaps(qrBox, listBox)).toBe(false);
     expect(overlaps(backBox, listBox)).toBe(false);
+  });
+
+  it('takes the old code down when a profile is read from a file', () => {
+    // The code was drawn from the profile this session solved. `ui` is solved
+    // before and after an import, so only an explicit repaint tells the
+    // sprite that the list now holds another profile.
+    const adopt = scriptOrder(blocks, 'do-adopt');
+    const last = adopt.at(-1);
+    expect(last?.opcode).toBe('event_broadcast');
+    expect(
+      (
+        last?.inputs.BROADCAST_INPUT as [number, [number, string, string]]
+      )[1][2],
+    ).toBe('msg-repaint');
+    const written = adopt
+      .filter((block) => block.opcode === 'data_setvariableto')
+      .map((block) => (block.fields.VARIABLE as [string, string])[0]);
+    expect(written).toContain('adopted');
+    expect(written).toContain('status');
+  });
+
+  it('offers the way back when the shutter stops on a changed camera', () => {
+    // A new resolution or another camera is refused frame by frame: the
+    // shutter stops and the session waits, neither solved nor failed. Without
+    // this the only way out was the green flag.
+    const sprite = enabled.targets.find(
+      (target) => (target as { name?: string }).name === 'back',
+    ) as unknown as { blocks: Record<string, ScratchBlock> };
+    const condition = texts(
+      sprite.blocks,
+      sprite.blocks['back-show-1']?.inputs.CONDITION,
+    );
+    expect(condition).toContain('ready');
+    expect(condition).toContain('ready+');
+    expect(condition).toContain('reason');
+    // And the line stops asking for a board to be moved.
+    const failedWrites = Object.values(blocks).filter(
+      (block) =>
+        block.opcode === 'data_setvariableto' &&
+        (block.fields.VARIABLE as [string, string])[0] === 'status' &&
+        JSON.stringify(block.inputs.VALUE).includes(
+          '校正を続けられませんでした',
+        ),
+    );
+    expect(failedWrites.length).toBe(1);
+  });
+
+  it('starts a new session with an empty profile list', () => {
+    for (const index of BOARDS.keys()) {
+      expect(
+        scriptOrder(blocks, `do-begin-${index}`).map((block) => block.opcode),
+      ).toContain('data_deletealloflist');
+    }
   });
 
   it('offers a way back once a session is over, and only then', () => {
