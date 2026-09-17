@@ -204,6 +204,18 @@ for (const board of BOARDS) {
 }
 patterns.append(boardList);
 
+const handover = element('section', '');
+handover.append(element('h3', '校正できたあと — プロファイルの受け渡し'));
+for (const line of [
+  '校正が終わると、その場で camera-source に登録されます。押すものはありません。',
+  '同時に、ステージ左の profile リストに校正データ（JSON）が入ります。リストを右クリックして「書き出す」で、ファイルとして保存できます。これが消費側アプリへの受け渡し経路です。',
+  '既存のプロファイルを読み込むときは、同じリストを右クリックして「読み込む」でファイルを選び、そのあと i キーを押してください。',
+  '読み込んだあと、fit の欄がこのカメラに使えるかを言います。「判定できません」は「たぶん使える」ではありません。撮影条件を確かめられなかったという意味で、そのときプロファイルは適用されません。',
+]) {
+  handover.append(element('p', line));
+}
+mount.append(handover);
+
 const media = element('section', '');
 media.append(element('h3', '見せ方によっては結果が偏ります'));
 const mediaList = document.createElement('ul');

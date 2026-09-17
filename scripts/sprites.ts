@@ -21,6 +21,7 @@ import {
   show,
   whenBroadcastReceived,
   whenFlagClicked,
+  pointInDirection,
   whenSpriteClicked,
   type BlockMap,
   type Reporter,
@@ -30,6 +31,15 @@ import {
 export interface ButtonSpec {
   /** Sprite name, and the prefix of its block IDs. */
   readonly name: string;
+  /**
+   * Whether this one turns over while the strip is open.
+   *
+   * Only the handle does. A control that looks the same before and after being
+   * pressed does not say what pressing it did, and the handle is the only
+   * thing on screen when everything else is hidden -- so it is the one that
+   * most has to.
+   */
+  readonly flips?: boolean;
   readonly costume: { name: string; contents: string };
   readonly x: number;
   readonly y: number;
@@ -45,6 +55,20 @@ export function buttonTarget(
   assetId: string,
   repaint: { id: string; name: string },
 ): Record<string, unknown> {
+  const settle = (): Step[] => [
+    ...(button.visibleWhen
+      ? [ifElse(button.visibleWhen, [show], [hide])]
+      : [show]),
+    ...(button.flips
+      ? [
+          ifElse(
+            equals(readVariable('panel', 'panel'), 'open'),
+            [pointInDirection(-90)],
+            [pointInDirection(90)],
+          ),
+        ]
+      : []),
+  ];
   const blocks: BlockMap = {
     // Told when to look, rather than looking every frame.
     //
@@ -62,22 +86,12 @@ export function buttonTarget(
       48,
       48,
       whenBroadcastReceived(repaint.id, repaint.name),
-      button.visibleWhen
-        ? [ifElse(button.visibleWhen, [show], [hide])]
-        : [show],
+      settle(),
     ),
     // The green flag does not send that message, so each button also settles
     // itself once at the start. Without this a button would keep whatever
     // visibility the project was saved with until the first state change.
-    ...script(
-      `${button.name}-start`,
-      48,
-      200,
-      whenFlagClicked(),
-      button.visibleWhen
-        ? [ifElse(button.visibleWhen, [show], [hide])]
-        : [show],
-    ),
+    ...script(`${button.name}-start`, 48, 200, whenFlagClicked(), settle()),
   };
   if (button.broadcast) {
     Object.assign(
