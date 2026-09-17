@@ -25,8 +25,8 @@ importers:
         specifier: 0.11.0
         version: 0.11.0
       '@kubohiroya/turbowarp-qr-display':
-        specifier: 0.1.0
-        version: 0.1.0
+        specifier: 0.2.0
+        version: 0.2.0
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -139,8 +139,8 @@ packages:
     resolution: {integrity: sha512-bx91+Vy8109QwLAkM2yvLafrBUvH5C7FU74Ldn/msOL8eImC644g7/EwB9JPSSH4ZXafPKXFq1ADVMISXyCxuQ==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-qr-display@0.1.0':
-    resolution: {integrity: sha512-T5vQOeWTj/YNaF6PAernc3Psfaui5oGXEfNCiq3pZpowtAAorD3GZzvnp6zXbQq3kyTGVPEy70FVwhY8Lx0Dbw==}
+  '@kubohiroya/turbowarp-qr-display@0.2.0':
+    resolution: {integrity: sha512-wnv/C9AIhkNrpYcuI73Poca1D/wzcg/v7GLFNcW9hAkO2YvN4gva9GzKwu52TTWSAAYhbdC/OMmQ+89EETUpuw==}
     engines: {node: '>=22.18.0'}
 
   '@oxc-project/types@0.149.0':
@@ -1147,7 +1147,7 @@ snapshots:
 
   '@kubohiroya/turbowarp-camera-source@0.11.0': {}
 
-  '@kubohiroya/turbowarp-qr-display@0.1.0':
+  '@kubohiroya/turbowarp-qr-display@0.2.0':
     dependencies:
       qrcode: 1.5.4
 

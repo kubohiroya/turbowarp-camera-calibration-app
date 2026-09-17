@@ -1442,6 +1442,7 @@ export function createProject(title: string, options: ProjectOptions = {}) {
               ),
               readVariable(VARIABLES.profileText, 'profile text'),
               QR_DISPLAY,
+              SOLVED_LAYOUT.qr.maxSize,
             ),
             guideTarget(
               guideCostumes(),
@@ -1671,11 +1672,12 @@ export const SOLVED_LAYOUT = {
   list: { x: 5, y: 102, width: 100, height: 110 },
   errors: { x: 5, y: 220 },
   back: { centreX: 55, centreY: 318, width: 96, height: 40 },
-  // A sprite size, not a pixel size. TurboWarp draws the code at a power of
-  // two and shrinks it to this, which leaves the modules on uneven pixel
-  // widths; read back from the stage with jsQR, 79 decoded at pixel ratios 1,
-  // 1.5, 2 and 3, and every size near it failed at more of them.
-  qr: { right: 475, top: 104, spriteSize: 79 },
+  // The box the code has to fit in. The code is drawn with each module a
+  // whole number of units and can come out smaller, so it sits centred in
+  // the box. Scaled into this box instead (79% of a 320-unit code) it decoded
+  // at some pixel ratios and not others; at whole units it decoded at 1, 1.5,
+  // 2, 2.5 and 3.
+  qr: { right: 475, top: 104, maxSize: 253 },
   // Where the QR code would be. The fit is shown only for a profile brought
   // in from a file, and that profile gets no code, so the two never share
   // the space. The reason goes under it: a failed import can leave both up.
@@ -1683,12 +1685,23 @@ export const SOLVED_LAYOUT = {
   reason: { x: 112, y: 170 },
 } as const;
 
-const PROFILE_QR_SIZE = SOLVED_LAYOUT.qr.spriteSize;
-const PROFILE_QR_SIDE = (320 * PROFILE_QR_SIZE) / 100;
-const PROFILE_QR_AT = toStage(
-  SOLVED_LAYOUT.qr.right - PROFILE_QR_SIDE / 2,
-  SOLVED_LAYOUT.qr.top + PROFILE_QR_SIDE / 2,
-);
+/** 100%: the modules are whole units only at the size they were drawn. */
+const PROFILE_QR_SIZE = 100;
+/**
+ * Near the middle of the box, on odd whole units. The extension centres the
+ * code on an even unit, so the edges' position depends only on this one, and
+ * odd coordinates are where TurboWarp's stage read back sharply: codes of 400
+ * to 1100 bytes decoded at pixel ratios 1, 1.25, 1.5, 1.75, 2, 2.5 and 3 here,
+ * and at other positions failed at 1.5 or 2.5.
+ */
+const PROFILE_QR_AT = (() => {
+  const centre = toStage(
+    SOLVED_LAYOUT.qr.right - SOLVED_LAYOUT.qr.maxSize / 2,
+    SOLVED_LAYOUT.qr.top + SOLVED_LAYOUT.qr.maxSize / 2,
+  );
+  const odd = (value: number) => 2 * Math.floor(value / 2) + 1;
+  return { x: odd(centre.x), y: odd(centre.y) };
+})();
 const BACK_BUTTON_AT = toStage(
   SOLVED_LAYOUT.back.centreX,
   SOLVED_LAYOUT.back.centreY,
