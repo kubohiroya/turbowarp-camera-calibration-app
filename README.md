@@ -81,12 +81,12 @@ pnpm dev
 - `config/app.json`: name, modes, description, and remaining work.
 - `config/feature-flags.ts`: feature flags, fixed at startup. Capture and calibration (`captureAndSolveV1`) is on by default.
 - `scripts/project.ts`: the source of truth for the startup-check SB3.
-- `apps/main/source`: the generated unpacked SB3 sources.
+- `apps/main/source`: the unpacked SB3 sources, generated at build time (not tracked by Git).
 - `src`: the distribution page built on the shared shell.
 - `public/downloads`: the generated SB3 and release.json.
 - `dist`: build output for the distribution page and downloads.
 
-After changing `project.ts` or the title, run `pnpm source:update` to regenerate the sources. Generated SB3 files and `dist` are not tracked by Git. Archives are produced with sb3-toolchain.
+`pnpm build` generates `apps/main/source` from `project.ts` and the extensions pinned in `package.json`, then packs it with sb3-toolchain. The generated sources, SB3 files and `dist` are not tracked by Git.
 
 ## Staged rollout and acceptance criteria
 
@@ -99,7 +99,7 @@ After changing `project.ts` or the title, run `pnpm source:update` to regenerate
 
 ## Rollback and task management
 
-Calibration in the SB3 is behind `captureAndSolveV1` in `config/feature-flags.ts`, ON by default: the SB3 the page offers calibrates as it is (about 2.7 MB). To roll back, set it to `false` and run `pnpm source:update`; the SB3 then embeds no extensions, is a few kilobytes, and the page still shows the boards.
+Calibration in the SB3 is behind `captureAndSolveV1` in `config/feature-flags.ts`, ON by default: the SB3 the page offers calibrates as it is (about 2.7 MB). To roll back, set it to `false` and run `pnpm build`; the SB3 then embeds no extensions, is a few kilobytes, and the page still shows the boards.
 
 GitHub Issues and pull requests are the source of truth for progress.
 

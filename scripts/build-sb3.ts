@@ -3,6 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 const output = 'public/downloads/app.sb3';
 await mkdir('public/downloads', { recursive: true });
+// apps/main/source is not tracked: it is generated here, every build, from
+// scripts/project.ts and the extensions pinned in package.json.
+execFileSync(process.execPath, ['scripts/generate-source.ts'], {
+  stdio: 'inherit',
+});
 execFileSync('pnpm', ['exec', 'sb3-toolchain', 'check', 'apps/main/source'], {
   stdio: 'inherit',
 });

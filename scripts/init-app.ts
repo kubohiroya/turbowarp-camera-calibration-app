@@ -1,7 +1,6 @@
 import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
 import { readmeEn, readmeJa, type AppConfig } from './readme.ts';
 
 const [destinationArgument, configArgument] = process.argv.slice(2);
@@ -93,8 +92,4 @@ await writeFile(
 );
 await writeFile(resolve(destination, 'README.md'), readmeEn(config));
 await writeFile(resolve(destination, 'README.ja.md'), readmeJa(config));
-execFileSync(process.execPath, ['scripts/generate-source.ts', '--write'], {
-  cwd: destination,
-  stdio: 'inherit',
-});
 console.log(`Initialized ${config.slug}; Git metadata was preserved.`);

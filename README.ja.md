@@ -81,12 +81,12 @@ pnpm dev
 - config/app.json：名前、モード、説明、今後の予定。
 - config/feature-flags.ts：起動時固定の機能フラグ。撮影と校正（captureAndSolveV1）は既定ON。
 - scripts/project.ts：起動確認用SB3の正本。
-- apps/main/source：生成した展開済みSB3ソース。
+- apps/main/source：ビルド時に生成する展開済みSB3ソース（Git管理対象外）。
 - src：共通シェルを利用する配布ページ。
 - public/downloads：生成SB3とrelease.json。
 - dist：配布ページとダウンロードのビルド結果。
 
-project.tsやtitleを変更したらpnpm source:updateで生成ソースを更新します。生成SB3・distはGit管理対象外です。アーカイブはsb3-toolchainで生成します。
+pnpm buildがproject.tsとpackage.jsonで固定した機能拡張からapps/main/sourceを生成し、sb3-toolchainでSB3にします。生成ソース・生成SB3・distはGit管理対象外です。
 
 ## 段階導入と受け入れ基準
 
@@ -99,7 +99,7 @@ pnpm check は、生成したSB3ソース、プロジェクトのスクリプト
 
 ## ロールバックとタスク管理
 
-SB3の校正は config/feature-flags.ts の captureAndSolveV1 の後ろにあり、既定はONです。配布ページからダウンロードするSB3で、そのまま校正できます（約2.7MB）。問題があれば captureAndSolveV1 を false にして pnpm source:update で再生成すると、機能拡張を埋め込まない数KBのSB3に戻り、ページでのボード表示はそのまま使えます。
+SB3の校正は config/feature-flags.ts の captureAndSolveV1 の後ろにあり、既定はONです。配布ページからダウンロードするSB3で、そのまま校正できます（約2.7MB）。問題があれば captureAndSolveV1 を false にして pnpm build で再生成すると、機能拡張を埋め込まない数KBのSB3に戻り、ページでのボード表示はそのまま使えます。
 
 GitHub Issues とプルリクエストを進捗の正本とします。
 

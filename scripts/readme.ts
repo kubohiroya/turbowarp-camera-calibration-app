@@ -73,12 +73,12 @@ pnpm dev
 - config/app.json：名前、モード、説明、実装予定。英語READMEの訳文はenに置きます。
 - config/feature-flags.ts：起動時固定・既定OFFの実験機能フラグ。
 - scripts/project.ts：起動確認用SB3の正本。
-- apps/main/source：生成した展開済みSB3ソース。
+- apps/main/source：ビルド時に生成する展開済みSB3ソース（Git管理対象外）。
 - src：共通シェルを利用する配布ページ。
 - public/downloads：生成SB3とrelease.json。
 - dist：配布ページとダウンロードのビルド結果。
 
-project.tsやtitleを変更したらpnpm source:updateで生成ソースを更新します。生成SB3・distはGit管理対象外です。アーカイブはsb3-toolchainで生成します。
+pnpm buildがproject.tsとpackage.jsonで固定した機能拡張からapps/main/sourceを生成し、sb3-toolchainでSB3にします。生成ソース・生成SB3・distはGit管理対象外です。
 
 ## 段階導入と受け入れ基準
 
@@ -151,12 +151,12 @@ pnpm dev
 - \`config/app.json\`: name, modes, description, and planned work. English README text goes under \`en\`.
 - \`config/feature-flags.ts\`: experimental feature flags, fixed at startup and OFF by default.
 - \`scripts/project.ts\`: the source of truth for the startup-check SB3.
-- \`apps/main/source\`: the generated unpacked SB3 sources.
+- \`apps/main/source\`: the unpacked SB3 sources, generated at build time (not tracked by Git).
 - \`src\`: the distribution page built on the shared shell.
 - \`public/downloads\`: the generated SB3 and release.json.
 - \`dist\`: build output for the distribution page and downloads.
 
-After changing \`project.ts\` or the title, run \`pnpm source:update\` to regenerate the sources. Generated SB3 files and \`dist\` are not tracked by Git. Archives are produced with sb3-toolchain.
+\`pnpm build\` generates \`apps/main/source\` from \`project.ts\` and the extensions pinned in \`package.json\`, then packs it with sb3-toolchain. The generated sources, SB3 files and \`dist\` are not tracked by Git.
 
 ## Staged rollout and acceptance criteria
 

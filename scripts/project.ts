@@ -384,7 +384,7 @@ const ADVICE: ReadonlyArray<readonly [string, string | Reporter]> = [
 ];
 
 const DISABLED_STATUS =
-  'この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update してください。';
+  'この配布物に校正は入っていません。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm build してください。';
 
 /**
  * A nested if/else chain over one variable, written out as blocks.

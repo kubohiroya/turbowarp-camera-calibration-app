@@ -105,7 +105,7 @@ buildList.append(
     'li',
     featureFlags.captureAndSolveV1
       ? '撮影と校正：有効。camera-source・camera-calibration・qr-display をSB3へ埋め込んでいます（OpenCVを含むため数MBになります）。'
-      : '撮影と校正：無効。拡張はSB3へ埋め込んでいないので、配布物は数KBです。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm source:update すると、拡張を埋め込んだSB3が作られます。',
+      : '撮影と校正：無効。拡張はSB3へ埋め込んでいないので、配布物は数KBです。config/feature-flags.ts の captureAndSolveV1 をONにして pnpm build すると、拡張を埋め込んだSB3が作られます。',
   ),
 );
 buildList.append(element('li', '模様の表示：有効。拡張もカメラも使いません。'));

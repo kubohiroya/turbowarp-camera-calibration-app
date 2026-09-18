@@ -1,6 +1,7 @@
 node_modules/
 dist/
 public/downloads/
+apps/main/source/
 coverage/
 *.log
 .DS_Store

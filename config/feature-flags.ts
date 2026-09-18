@@ -4,10 +4,9 @@
  *
  * The calibration path is on by default, so the SB3 the page offers is one
  * that calibrates. Turning it off is the rollback: flip the flag, run
- * `pnpm source:update`, and the regenerated SB3 embeds no extension and is a few
- * kilobytes again. `source:check` refuses a flag that has been changed without the
- * project being rebuilt, so what the page reports and what the SB3 does cannot
- * drift apart.
+ * `pnpm build`, and the regenerated SB3 embeds no extension and is a few
+ * kilobytes again. The build generates the SB3 source from these flags every
+ * time, so what the page reports and what the SB3 does cannot drift apart.
  *
  * Enabling a flag does not implement a runtime.
  */

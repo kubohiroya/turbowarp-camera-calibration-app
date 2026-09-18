@@ -1,5 +1,5 @@
 import { guideCostumes } from '../src/guide.ts';
-import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import {
   applyButtonCostume,
   backButtonCostume,
@@ -82,82 +82,19 @@ for (const extension of extensions) {
     extension.manifest.toString('utf8'),
   );
 }
-// The one asset that is not text. Kept apart because comparing it as a string
-// would decode bytes that are not characters, and a difference in what does
-// not decode would be reported as no difference at all.
 const binaries = new Map<string, Uint8Array>(
   sounds.map((sound) => [`apps/main/source/assets/${sound.file}`, sound.bytes]),
 );
 
-const write = process.argv.includes('--write');
-for (const [path, contents] of files) {
+// The directory is build output, not source: everything in it comes from the
+// scripts above and from the pinned packages in node_modules. Starting from an
+// empty directory means a file an earlier build wrote -- an asset under a hash
+// no costume references any more, an extension the flags have since switched
+// off -- cannot survive into the SB3.
+await rm(new URL('apps/main/source/', root), { recursive: true, force: true });
+for (const [path, contents] of [...files, ...binaries]) {
   const url = new URL(path, root);
-  if (write) {
-    await mkdir(new URL('.', url), { recursive: true });
-    await writeFile(url, contents);
-  } else if ((await readFile(url, 'utf8')) !== contents) {
-    throw new Error(`${path} is stale; run pnpm source:update.`);
-  }
+  await mkdir(new URL('.', url), { recursive: true });
+  await writeFile(url, contents);
 }
-for (const [path, bytes] of binaries) {
-  const url = new URL(path, root);
-  if (write) {
-    await mkdir(new URL('.', url), { recursive: true });
-    await writeFile(url, bytes);
-  } else {
-    const found = await readFile(url).catch(() => undefined);
-    if (!found || !found.equals(Buffer.from(bytes))) {
-      throw new Error(`${path} is stale; run pnpm source:update.`);
-    }
-  }
-}
-
-// An extension file left behind when the calibration path is switched off is
-// still committed, still validated, and still looks like part of the project --
-// while nothing lists it. The toolchain reports it as an extra file rather than
-// removing it, so the removal happens here.
-const extensionDirectory = new URL('apps/main/source/extensions/', root);
-await mkdir(extensionDirectory, { recursive: true });
-const expectedExtensionFiles = new Set(
-  extensions.flatMap((extension) => [
-    `${extension.id}.js`,
-    `${extension.id}.manifest.json`,
-  ]),
-);
-const strayExtensions = (await readdir(extensionDirectory)).filter(
-  (name) => !expectedExtensionFiles.has(name),
-);
-if (strayExtensions.length > 0) {
-  if (!write) {
-    throw new Error(
-      `apps/main/source/extensions holds files nothing embeds: ${strayExtensions.join(', ')}; run pnpm source:update.`,
-    );
-  }
-  for (const stray of strayExtensions) {
-    await unlink(new URL(stray, extensionDirectory));
-  }
-}
-
-// An asset whose board changed keeps its old file under a hash nobody
-// references. Left behind it would still be committed, still be packed into the
-// SB3 by archiveEntries drift, and still look like part of the project.
-const assetDirectory = new URL('apps/main/source/assets/', root);
-await mkdir(assetDirectory, { recursive: true });
-const expected = new Set([
-  ...assets.map((asset) => asset.file),
-  ...sounds.map((sound) => sound.file),
-]);
-const orphans = (await readdir(assetDirectory)).filter(
-  (name) => !expected.has(name),
-);
-if (orphans.length > 0) {
-  if (!write) {
-    throw new Error(
-      `apps/main/source/assets holds files no costume references: ${orphans.join(', ')}; run pnpm source:update.`,
-    );
-  }
-  for (const orphan of orphans) {
-    await unlink(new URL(orphan, assetDirectory));
-  }
-}
-console.log('SB3 source matches the authored project.');
+console.log('Generated apps/main/source from the authored project.');
