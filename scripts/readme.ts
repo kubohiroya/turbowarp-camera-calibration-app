@@ -57,7 +57,7 @@ ${config.modes.map((mode) => `- **${mode.label}**：${mode.description}`).join('
 
 ${list(config.plannedDependencies, '- テンプレートには用途固有の拡張依存を含めません。')}
 
-実際の依存はpackage.jsonのturbowarp-app-shell 0.2.0のみです。上記の用途固有の接続は予定であり、未公開の初期拡張に依存しません。追加時には拡張のexact version、配布物hash、API manifest、評価順序を固定します。
+実際の依存はpackage.jsonのexact pinを正本とします。拡張のversion、配布物hash、API manifest、評価順序を固定します。
 
 ## 構成と開発
 
@@ -135,7 +135,7 @@ ${translatedModes(config)
 
 ${list(config.en?.plannedDependencies ?? config.plannedDependencies, '- The template does not bundle use-case-specific extension dependencies.')}
 
-The only actual dependency is turbowarp-app-shell 0.2.0 in package.json. The use-case-specific connections above are planned, and do not rely on any unreleased early extension. When one is added, its exact version, artifact hash, API manifest, and evaluation order will be pinned.
+The exact pins in package.json are authoritative. Extension versions, artifact hashes, API manifests, and evaluation order are pinned.
 
 ## Layout and development
 
