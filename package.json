@@ -1,6 +1,6 @@
 {
   "name": "@kubohiroya/turbowarp-camera-calibration-app",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "市松模様の表示と撮影を1つのアプリで行い、カメラのレンズ校正プロファイルを作成して書き出すアプリです。",
@@ -33,8 +33,8 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "@kubohiroya/sb3-toolchain": "0.12.0",
-    "@kubohiroya/turbowarp-camera-calibration": "0.15.3",
-    "@kubohiroya/turbowarp-camera-source": "0.19.2",
+    "@kubohiroya/turbowarp-camera-calibration": "0.15.4",
+    "@kubohiroya/turbowarp-camera-source": "0.19.3",
     "@kubohiroya/turbowarp-qr-display": "0.2.0",
     "@types/node": "24.13.3",
     "eslint": "9.39.5",

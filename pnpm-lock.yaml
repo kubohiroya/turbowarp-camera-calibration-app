@@ -19,11 +19,11 @@ importers:
         specifier: 0.12.0
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.15.3
-        version: 0.15.3(react@18.3.1)
+        specifier: 0.15.4
+        version: 0.15.4(react@18.3.1)
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.19.2
-        version: 0.19.2
+        specifier: 0.19.3
+        version: 0.19.3
       '@kubohiroya/turbowarp-qr-display':
         specifier: 0.2.0
         version: 0.2.0
@@ -131,16 +131,12 @@ packages:
     resolution: {integrity: sha512-fVNVA/5SOTO35L9Q4aUTYpxXK+n6FtnP3RvVUpv0huHYcawDS8SAuiyYTA/Bh2OMAuosXF0x5bvEEhlESEd3kA==}
     engines: {node: '>=22'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.15.3':
-    resolution: {integrity: sha512-8c7varMiXlmb0EHv6W8XEgWgkr1GudzjixB/sOQf1E3z0hRh9z7A4lJ0k6A7QkpzyHertoofIphb02phScRUHA==}
+  '@kubohiroya/turbowarp-camera-calibration@0.15.4':
+    resolution: {integrity: sha512-Tv0LYntb9AgIOf1oAuowvAcIbRf4iXq2mutsa8Jond8M5/kuy3Nv6dCbnwmq0FiZAVA7i4RpRi/opDQq43L8ZA==}
     engines: {node: '>=22.18.0'}
 
-  '@kubohiroya/turbowarp-camera-source@0.19.1':
-    resolution: {integrity: sha512-9QKQe3lJoltWX7LXMtUy4tc1ervCOnz4JTNLxdZi+Psxr2fgK74btTryzJBhsFchAzL6aAWQ1ikJrqxTlzcjzA==}
-    engines: {node: '>=22.18.0'}
-
-  '@kubohiroya/turbowarp-camera-source@0.19.2':
-    resolution: {integrity: sha512-h2N8BSrYXGNTOPUeLNitIPLGXxqP6b2FGUDxykz4SGM5egYoZ56t40DIppsY7hI1JCkvf731nTFF6iWhal7zEg==}
+  '@kubohiroya/turbowarp-camera-source@0.19.3':
+    resolution: {integrity: sha512-ArMCNkyD7NjskJGh1F4nPBmQaQ3V/cVBgU3M7+/YJNbo6NYbrSoj10PSMMMWSVdTKu3RTtb3ziT81EIXx41weQ==}
     engines: {node: '>=22.18.0'}
 
   '@kubohiroya/turbowarp-extension-data-editor@0.2.1':
@@ -1273,18 +1269,16 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.3.1': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.15.3(react@18.3.1)':
+  '@kubohiroya/turbowarp-camera-calibration@0.15.4(react@18.3.1)':
     dependencies:
-      '@kubohiroya/turbowarp-camera-source': 0.19.1
+      '@kubohiroya/turbowarp-camera-source': 0.19.3
       '@kubohiroya/turbowarp-extension-data-editor': 0.2.1(react@18.3.1)
       comlink: 4.4.2
     transitivePeerDependencies:
       - react
       - react-dom
 
-  '@kubohiroya/turbowarp-camera-source@0.19.1': {}
-
-  '@kubohiroya/turbowarp-camera-source@0.19.2': {}
+  '@kubohiroya/turbowarp-camera-source@0.19.3': {}
 
   '@kubohiroya/turbowarp-extension-data-editor@0.2.1(react@18.3.1)':
     dependencies:
