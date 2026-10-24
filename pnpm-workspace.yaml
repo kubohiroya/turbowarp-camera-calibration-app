@@ -1,5 +1,7 @@
 packages: []
 minimumReleaseAgeExclude:
+  - '@kubohiroya/turbowarp-camera-calibration@0.15.4'
+  - '@kubohiroya/turbowarp-camera-source@0.19.3'
   - '@kubohiroya/turbowarp-camera-source@0.19.1'
   - '@kubohiroya/turbowarp-camera-source@0.19.2'
   - '@kubohiroya/turbowarp-camera-calibration@0.15.3'
