@@ -9,23 +9,23 @@ importers:
   .:
     dependencies:
       '@kubohiroya/turbowarp-app-shell':
-        specifier: 0.3.1
+        specifier: "^0.3.1"
         version: 0.3.1
     devDependencies:
       '@eslint/js':
         specifier: 9.39.5
         version: 9.39.5
       '@kubohiroya/sb3-toolchain':
-        specifier: 0.12.0
+        specifier: "^0.12.0"
         version: 0.12.0
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: 0.15.4
+        specifier: "^0.15.4"
         version: 0.15.4(react@18.3.1)
       '@kubohiroya/turbowarp-camera-source':
-        specifier: 0.19.3
+        specifier: "^0.19.3"
         version: 0.19.3
       '@kubohiroya/turbowarp-qr-display':
-        specifier: 0.2.0
+        specifier: "^0.2.0"
         version: 0.2.0
       '@types/node':
         specifier: 24.13.3
