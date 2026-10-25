@@ -1,6 +1,6 @@
 # TurboWarp Camera Calibration App
 
-**English** | [日本語](README.ja.md)
+English | [日本語](README.ja.md)
 
 An app that both displays and photographs a ChArUco board, producing a camera lens calibration profile and handing it over as a QR code or a file.
 

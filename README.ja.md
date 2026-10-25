@@ -1,6 +1,6 @@
 # TurboWarp Camera Calibration App
 
-[English](README.md) | **日本語**
+[English](README.md) | 日本語
 
 ChArUcoボードの表示と撮影を1つのアプリで行い、カメラのレンズ校正プロファイルを作ってQRコードまたはファイルで渡すアプリです。
 
