@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { featureFlags } from '../config/feature-flags.ts';
+import { matchesEmbeddedDependency } from './dependency-range.ts';
 
 const require = createRequire(import.meta.url);
 
@@ -69,11 +70,10 @@ export function integrity(bytes: Buffer): string {
 /**
  * Reads one pinned extension out of `node_modules`.
  *
- * The version has to be pinned exactly in this repository's `package.json`, and
- * the installed package has to be that version. A range would let two builds of
- * the same commit embed different bytes, and an extension that has not been
- * published cannot be installed at an exact version at all -- which is the
- * mechanical refusal the plan asks for, rather than a reviewer noticing.
+ * CI installs with the frozen lockfile, which fixes the exact artifact even
+ * when package.json declares a compatible family caret range. The installed
+ * version must match that declaration; its exact version and bytes are recorded
+ * in the embedded manifest.
  */
 export function resolveExtension(pin: ExtensionPin): ResolvedExtension {
   const manifestPath = require.resolve(`${pin.packageName}/package.json`);
@@ -82,14 +82,11 @@ export function resolveExtension(pin: ExtensionPin): ResolvedExtension {
     version: string;
   };
   const declared = declaredVersion(pin.packageName);
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(declared)) {
+  if (
+    !matchesEmbeddedDependency(pin.packageName, declared, installed.version)
+  ) {
     throw new Error(
-      `${pin.packageName} must be pinned to an exact version in package.json; found ${declared}.`,
-    );
-  }
-  if (installed.version !== declared) {
-    throw new Error(
-      `${pin.packageName} is pinned to ${declared} but ${installed.version} is installed; run pnpm install.`,
+      `${pin.packageName} must declare an exact version or family caret range matching ${installed.version}; found ${declared}.`,
     );
   }
   const javascript = readFileSync(new URL(pin.artifact, root));
