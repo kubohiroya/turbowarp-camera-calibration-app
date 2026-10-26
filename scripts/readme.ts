@@ -61,9 +61,10 @@ ${list(config.plannedDependencies, '- テンプレートには用途固有の拡
 
 ## 構成と開発
 
-Node.js >=22.18.0、pnpm 11.11.0。
+Node.js >=24、pnpm 11.28.8。
 
 \`\`\`bash
+npm install --global corepack@latest
 corepack enable
 pnpm install --frozen-lockfile
 pnpm check
@@ -139,9 +140,10 @@ The exact pins in package.json are authoritative. Extension versions, artifact h
 
 ## Layout and development
 
-Node.js >=22.18.0, pnpm 11.11.0.
+Node.js >=24, pnpm 11.28.8.
 
 \`\`\`bash
+npm install --global corepack@latest
 corepack enable
 pnpm install --frozen-lockfile
 pnpm check
