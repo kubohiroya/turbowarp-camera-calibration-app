@@ -20,11 +20,11 @@ import {
 
 const own = createRequire(import.meta.url)('../package.json') as {
   version: string;
-  author: string;
+  author: { name: string; email: string; url: string };
   license: string;
 };
 const appVersion = own.version;
-const appAuthor = own.author;
+const appAuthor = own.author.name;
 const appLicense = own.license;
 import {
   BOARDS,
