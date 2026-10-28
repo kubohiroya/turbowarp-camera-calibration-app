@@ -1,9 +1,9 @@
 packages: []
 minimumReleaseAgeExclude:
-  - '@kubohiroya/turbowarp-qr-display@0.1.0 || 0.2.0 || 0.3.0 || 0.4.0'
-  - '@kubohiroya/turbowarp-camera-source@0.8.0 || 0.9.0 || 0.9.1 || 0.10.0 || 0.11.0 || 0.12.0 || 0.19.0 || 0.19.1 || 0.19.2 || 0.19.3 || 0.20.0 || 0.21.0'
-  - '@kubohiroya/turbowarp-camera-calibration@0.2.0 || 0.4.0 || 0.7.0 || 0.8.0 || 0.8.1 || 0.8.2 || 0.10.0 || 0.11.0 || 0.12.0 || 0.13.0 || 0.14.0 || 0.15.2 || 0.15.3 || 0.15.4 || 0.16.0 || 0.17.0'
-  - '@kubohiroya/sb3-toolchain@0.17.0 || 0.18.0'
-  - '@kubohiroya/turbowarp-app-shell@0.3.0 || 0.3.1 || 0.4.0 || 0.5.0'
-  - '@kubohiroya/turbowarp-extension-data-editor@0.3.4 || 0.4.0'
+  - '@kubohiroya/turbowarp-qr-display@0.1.0 || 0.2.0 || 0.3.0 || 0.4.0 || 0.5.0'
+  - '@kubohiroya/turbowarp-camera-source@0.8.0 || 0.9.0 || 0.9.1 || 0.10.0 || 0.11.0 || 0.12.0 || 0.19.0 || 0.19.1 || 0.19.2 || 0.19.3 || 0.20.0 || 0.21.0 || 0.22.0'
+  - '@kubohiroya/turbowarp-camera-calibration@0.2.0 || 0.4.0 || 0.7.0 || 0.8.0 || 0.8.1 || 0.8.2 || 0.10.0 || 0.11.0 || 0.12.0 || 0.13.0 || 0.14.0 || 0.15.2 || 0.15.3 || 0.15.4 || 0.16.0 || 0.17.0 || 0.18.0'
+  - '@kubohiroya/sb3-toolchain@0.17.0 || 0.18.0 || 0.19.0'
+  - '@kubohiroya/turbowarp-app-shell@0.3.0 || 0.3.1 || 0.4.0 || 0.5.0 || 0.6.0'
+  - '@kubohiroya/turbowarp-extension-data-editor@0.3.4 || 0.4.0 || 0.5.0'
   - '@kubohiroya/vite-plugin-turbowarp-extension@0.8.0'
