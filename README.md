@@ -51,7 +51,7 @@ Boards are named by their squares. The calibration block is given inner corners,
 ## Remaining work
 
 - Check on real hardware the solved screen (QR code, back button) and file export and import.
-- Read the profile in consuming apps (time-space-sync-app, photogrammetry-app), from the QR code with turbowarp-jsqr or from a file. The realtime-motion-capture-app camera app already does.
+- Read the profile in consuming apps (time-space-sync-app, photogrammetry-app), from the QR code with turbowarp-zxing or from a file. The realtime-motion-capture-app camera app already does.
 
 ## Modes
 

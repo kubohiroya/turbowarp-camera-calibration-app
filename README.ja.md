@@ -51,7 +51,7 @@ ChArUcoボードの表示と撮影を1つのアプリで行い、カメラのレ
 ## 今後の予定
 
 - 解けた画面（QRコード・戻る）と、ファイルの書き出し・読み込みを実機で確かめる。
-- 消費側アプリ（time-space-sync-app、photogrammetry-app）で、QRコード（turbowarp-jsqr）またはファイルからプロファイルを読み込む。realtime-motion-capture-app の camera app は読み込み済み。
+- 消費側アプリ（time-space-sync-app、photogrammetry-app）で、QRコード（turbowarp-zxing）またはファイルからプロファイルを読み込む。realtime-motion-capture-app の camera app は読み込み済み。
 
 ## モード
 
