@@ -19,14 +19,14 @@ importers:
         specifier: ^0.28.1
         version: 0.28.1(supports-color@7.2.0)
       '@kubohiroya/turbowarp-camera-calibration':
-        specifier: ^0.21.0
-        version: 0.21.0(react@18.3.1)
+        specifier: ^0.21.1
+        version: 0.21.1(react@18.3.1)
       '@kubohiroya/turbowarp-camera-source':
-        specifier: ^0.25.0
-        version: 0.25.0
+        specifier: ^0.25.1
+        version: 0.25.1
       '@kubohiroya/turbowarp-qr-display':
-        specifier: ^0.8.0
-        version: 0.8.0
+        specifier: ^0.8.1
+        version: 0.8.1
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -143,16 +143,16 @@ packages:
     resolution: {integrity: sha512-IHJWp9QGjQfGyS/et3YFQgsKwaHqEEFMPJw/yXY6mmcaLiscPdfI9BF1uFEeVzjuQU1aq7EiiaGu2UBDEWoFvQ==}
     engines: {node: '>=24'}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.21.0':
-    resolution: {integrity: sha512-xkjHcCqMUAoqVwJdyTdq5jRzDWkJff1ncMxZGTI2ie9rNacDniXgmqwaGwKel6zDu1Vi6A3wIWDXjgOih/bSCg==}
+  '@kubohiroya/turbowarp-camera-calibration@0.21.1':
+    resolution: {integrity: sha512-q3LtQ7V7a+AeEHjSHHVqPb8MDYWYJRuStwoireH9idi5DDVArINKvfyNqjYsLMiDO2pMrG5udxTmRVRqcnQMSA==}
     engines: {node: '>=24'}
 
-  '@kubohiroya/turbowarp-camera-source@0.25.0':
-    resolution: {integrity: sha512-9AxxDQRcnUw6KcPNd3m7F9d9L9LqDIOGj2So3MqnTDIZYueDluYun9SbWH3BYNrCrxe8QNKAEKOBDibdz85eFg==}
+  '@kubohiroya/turbowarp-camera-source@0.25.1':
+    resolution: {integrity: sha512-MTAWn6wyuUf+YIkMotyQUPsUUZi/ps/Tas/H3579OYfctS9tSAOqwL6yH/nGZV233Tlcr+GmQnqkqKe7nuL3/w==}
     engines: {node: '>=24'}
 
-  '@kubohiroya/turbowarp-extension-data-editor@0.11.2':
-    resolution: {integrity: sha512-uTOZJSNVzvpJIMGyOUTaQt2LOXXf5kru8mUyRD2Y/rsYUNJoGM4S8dhEI5UeyDFaXR7rCRVzkFR5pAcqjmSycQ==}
+  '@kubohiroya/turbowarp-extension-data-editor@0.11.4':
+    resolution: {integrity: sha512-kERbN1zFSoSUPwuZBgW3Ia7R6KHZ3B5MwDDomtVtIOr5QtjHx3NYMmxGE++w46KlkMWZvHFnneND7siFeNLQFw==}
     engines: {node: '>=24'}
     peerDependencies:
       react: ^16.14.0 || ^17 || ^18
@@ -163,8 +163,8 @@ packages:
       react-dom:
         optional: true
 
-  '@kubohiroya/turbowarp-qr-display@0.8.0':
-    resolution: {integrity: sha512-4cHrlM8hcnUIodDXsIDK5Qaq0ebsxCQYcSa3Lcnz8vmqhv2k3+vVo2Nn9rsVupNQblNqjuKGvbWLRskC8Sd4JQ==}
+  '@kubohiroya/turbowarp-qr-display@0.8.1':
+    resolution: {integrity: sha512-Q6MoWrbq7OfzF9jTm52biOIP89xSkaais6YnkUR0zuOKRFzn4FqG44CRkpSpVzR/LSzXn6zV5SM4nuHjPpKbGg==}
     engines: {node: '>=24'}
 
   '@napi-rs/wasm-runtime@1.2.6':
@@ -1443,18 +1443,18 @@ snapshots:
 
   '@kubohiroya/turbowarp-app-shell@0.6.1': {}
 
-  '@kubohiroya/turbowarp-camera-calibration@0.21.0(react@18.3.1)':
+  '@kubohiroya/turbowarp-camera-calibration@0.21.1(react@18.3.1)':
     dependencies:
-      '@kubohiroya/turbowarp-camera-source': 0.25.0
-      '@kubohiroya/turbowarp-extension-data-editor': 0.11.2(react@18.3.1)
+      '@kubohiroya/turbowarp-camera-source': 0.25.1
+      '@kubohiroya/turbowarp-extension-data-editor': 0.11.4(react@18.3.1)
       comlink: 4.4.2
     transitivePeerDependencies:
       - react
       - react-dom
 
-  '@kubohiroya/turbowarp-camera-source@0.25.0': {}
+  '@kubohiroya/turbowarp-camera-source@0.25.1': {}
 
-  '@kubohiroya/turbowarp-extension-data-editor@0.11.2(react@18.3.1)':
+  '@kubohiroya/turbowarp-extension-data-editor@0.11.4(react@18.3.1)':
     dependencies:
       '@rjsf/core': 5.24.13(@rjsf/utils@5.24.13(react@18.3.1))(react@18.3.1)
       '@rjsf/utils': 5.24.13(react@18.3.1)
@@ -1466,7 +1466,7 @@ snapshots:
     optionalDependencies:
       react: 18.3.1
 
-  '@kubohiroya/turbowarp-qr-display@0.8.0':
+  '@kubohiroya/turbowarp-qr-display@0.8.1':
     dependencies:
       qrcode: 1.5.4
 
