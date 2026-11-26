@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
-    "@kubohiroya/sb3-toolchain": "^0.30.0",
+    "@kubohiroya/sb3-toolchain": "^0.31.1",
     "@kubohiroya/turbowarp-camera-calibration": "^0.21.2",
     "@kubohiroya/turbowarp-camera-source": "^0.25.1",
     "@kubohiroya/turbowarp-qr-display": "^0.8.1",
