@@ -16,8 +16,8 @@ importers:
         specifier: 9.39.5
         version: 9.39.5
       '@kubohiroya/sb3-toolchain':
-        specifier: ^0.30.0
-        version: 0.30.0(supports-color@7.2.0)
+        specifier: ^0.31.1
+        version: 0.31.1(supports-color@7.2.0)
       '@kubohiroya/turbowarp-camera-calibration':
         specifier: ^0.21.2
         version: 0.21.2(react@18.3.1)
@@ -134,8 +134,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kubohiroya/sb3-toolchain@0.30.0':
-    resolution: {integrity: sha512-ZL2T0OaTuYZZvPiMNZlPDieHtS+hm/RP1QARCLSAlvj5b7fr1VzYrj23xLOQd/iEvS3ILUXgowMkVFr+B6zHrg==}
+  '@kubohiroya/sb3-toolchain@0.31.1':
+    resolution: {integrity: sha512-aDZgTDmqnxKi5hMoXnnh4141Wpf9lS43RM/X3k0cBdhNahVsn5yNc+gg35eV9rDxemjkajKzaHvCbfvVWRCj0w==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -166,6 +166,9 @@ packages:
   '@kubohiroya/turbowarp-extension-manifest@0.8.0':
     resolution: {integrity: sha512-mSVMD34rgwefDBEjCSVfDXCe0bpT3S0CdSaTSDjUCRLBsvNpDupeznVWYuk6VsoMYJ34iqTYbRnS7TLItJX46A==}
     engines: {node: '>=24'}
+
+  '@kubohiroya/turbowarp-plus-editor-test@0.4.0':
+    resolution: {integrity: sha512-YbcxADcPtFSrm6Hvmgfy9fz0cOv67OG56P9EfaRyyTy/nPbvKVM2r40txqDHbDXz7ig94+2ssxP/LYcn7ManhQ==}
 
   '@kubohiroya/turbowarp-qr-display@0.8.1':
     resolution: {integrity: sha512-Q6MoWrbq7OfzF9jTm52biOIP89xSkaais6YnkUR0zuOKRFzn4FqG44CRkpSpVzR/LSzXn6zV5SM4nuHjPpKbGg==}
@@ -1025,6 +1028,11 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   pngjs@5.0.0:
     resolution: {integrity: sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==}
     engines: {node: '>=10.13.0'}
@@ -1434,12 +1442,14 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@kubohiroya/sb3-toolchain@0.30.0(supports-color@7.2.0)':
+  '@kubohiroya/sb3-toolchain@0.31.1(supports-color@7.2.0)':
     dependencies:
       '@kubohiroya/turbowarp-extension-manifest': 0.8.0
+      '@kubohiroya/turbowarp-plus-editor-test': 0.4.0
       '@noble/hashes': 2.4.0
       fflate: 0.8.3
       music-metadata: 12.7.0(supports-color@7.2.0)
+      playwright-core: 1.64.1
       rolldown: 1.3.3
       semver: 7.8.6
       yaml: 2.9.1
@@ -1472,6 +1482,8 @@ snapshots:
       react: 18.3.1
 
   '@kubohiroya/turbowarp-extension-manifest@0.8.0': {}
+
+  '@kubohiroya/turbowarp-plus-editor-test@0.4.0': {}
 
   '@kubohiroya/turbowarp-qr-display@0.8.1':
     dependencies:
@@ -2205,6 +2217,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.64.1: {}
 
   pngjs@5.0.0: {}
 
