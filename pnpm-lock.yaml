@@ -16,8 +16,8 @@ importers:
         specifier: 9.39.5
         version: 9.39.5
       '@kubohiroya/sb3-toolchain':
-        specifier: ^0.28.1
-        version: 0.28.1(supports-color@7.2.0)
+        specifier: ^0.30.0
+        version: 0.30.0(supports-color@7.2.0)
       '@kubohiroya/turbowarp-camera-calibration':
         specifier: ^0.21.2
         version: 0.21.2(react@18.3.1)
@@ -134,8 +134,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kubohiroya/sb3-toolchain@0.28.1':
-    resolution: {integrity: sha512-28iSXE4CVL2uF4I/QmHnJg20VGqMDXLXvu2JxPrEuECerUXCiRi1uebm4xWWmN3bOtnNVkYR9aLXxliEfj1gXQ==}
+  '@kubohiroya/sb3-toolchain@0.30.0':
+    resolution: {integrity: sha512-ZL2T0OaTuYZZvPiMNZlPDieHtS+hm/RP1QARCLSAlvj5b7fr1VzYrj23xLOQd/iEvS3ILUXgowMkVFr+B6zHrg==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -162,6 +162,10 @@ packages:
         optional: true
       react-dom:
         optional: true
+
+  '@kubohiroya/turbowarp-extension-manifest@0.8.0':
+    resolution: {integrity: sha512-mSVMD34rgwefDBEjCSVfDXCe0bpT3S0CdSaTSDjUCRLBsvNpDupeznVWYuk6VsoMYJ34iqTYbRnS7TLItJX46A==}
+    engines: {node: '>=24'}
 
   '@kubohiroya/turbowarp-qr-display@0.8.1':
     resolution: {integrity: sha512-Q6MoWrbq7OfzF9jTm52biOIP89xSkaais6YnkUR0zuOKRFzn4FqG44CRkpSpVzR/LSzXn6zV5SM4nuHjPpKbGg==}
@@ -1430,8 +1434,9 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@kubohiroya/sb3-toolchain@0.28.1(supports-color@7.2.0)':
+  '@kubohiroya/sb3-toolchain@0.30.0(supports-color@7.2.0)':
     dependencies:
+      '@kubohiroya/turbowarp-extension-manifest': 0.8.0
       '@noble/hashes': 2.4.0
       fflate: 0.8.3
       music-metadata: 12.7.0(supports-color@7.2.0)
@@ -1465,6 +1470,8 @@ snapshots:
       yaml: 2.9.1
     optionalDependencies:
       react: 18.3.1
+
+  '@kubohiroya/turbowarp-extension-manifest@0.8.0': {}
 
   '@kubohiroya/turbowarp-qr-display@0.8.1':
     dependencies:
